@@ -1,0 +1,25 @@
+name: 'PR Helper'
+description: 'GH Action for automate some common PR operations and validate PR description, changelog and credits.'
+inputs:
+  assign-pr:
+    description: "Wether assign PR to reporter"
+    required: false
+    default: true
+  fail-label:
+    description: "The label to be added to PR if the pull request doesn't pass the validation"
+    required: false
+    default: 'needs:feedback'
+  pass-label:
+    description: 'The label to be added to PR if the pull request pass the validation'
+    required: false
+    default: 'needs:code-review'
+  comment-template:
+    description: "Comment template for adding comment on PR if it doesn't pass the validation"
+    required: false
+    default: '{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?'
+  reviewer:
+    description: 'Reviewer to request review after passing all validation checks'
+    required: false
+runs:
+  using: 'node16'
+  main: 'dist/index.js'

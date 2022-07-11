@@ -1,0 +1,35 @@
+{
+  "name": "iamdharmesh/action-pr-helper",
+  "version": "0.0.1",
+  "description": "GH Action for automate some common PR operations and validate PR description, changelog and credits.",
+  "main": "index.js",
+  "scripts": {
+    "lint": "eslint .",
+    "prepare": "ncc build index.js -o dist --source-map --license licenses.txt",
+    "all": "npm run lint && npm run prepare"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:iamdharmesh/action-pr-helper.git"
+  },
+  "keywords": [
+    "GitHub",
+    "Actions",
+    "JavaScript"
+  ],
+  "author": "iamdharmesh",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/iamdharmesh/action-pr-helper/issues"
+  },
+  "homepage": "https://github.com/iamdharmesh/action-pr-helper#readme",
+  "devDependencies": {
+    "@vercel/ncc": "^0.34.0",
+    "eslint": "^8.19.0"
+  },
+  "dependencies": {
+    "@actions/core": "^1.9.0",
+    "@actions/github": "^5.0.3",
+    "@octokit/action": "^3.18.1"
+  }
+}
