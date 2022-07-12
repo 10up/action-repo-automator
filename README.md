@@ -37,7 +37,7 @@ jobs:
   Validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: iamdharmesh/action-pr-helper@main
+      - uses: 10up/action-pr-helper@trunk
         with:
           fail-label: 'needs:feedback'
           pass-label: 'needs:code-review'

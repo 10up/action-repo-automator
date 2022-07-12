@@ -1,5 +1,5 @@
 {
-  "name": "iamdharmesh/action-pr-helper",
+  "name": "10up/action-pr-helper",
   "version": "0.0.1",
   "description": "GH Action for automate some common PR operations and validate PR description, changelog and credits.",
   "main": "index.js",
@@ -10,19 +10,23 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:iamdharmesh/action-pr-helper.git"
+    "url": "git@github.com:10up/action-pr-helper.git"
   },
   "keywords": [
     "GitHub",
     "Actions",
     "JavaScript"
   ],
-  "author": "iamdharmesh",
+  "author": {
+    "name": "10up",
+    "email": "opensource@10up.com",
+    "url": "https://10up.com"
+  },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/iamdharmesh/action-pr-helper/issues"
+    "url": "https://github.com/10up/action-pr-helper/issues"
   },
-  "homepage": "https://github.com/iamdharmesh/action-pr-helper#readme",
+  "homepage": "https://github.com/10up/action-pr-helper#readme",
   "devDependencies": {
     "@vercel/ncc": "^0.34.0",
     "eslint": "^8.19.0"
