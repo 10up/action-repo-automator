@@ -17,6 +17,6 @@ jobs:
         with:
           fail-label: needs:feedback
           pass-label: needs:code-review
-          reviewer: team:open-source-practice
+          reviewer: iamdharmesh
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT_REPO }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
