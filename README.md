@@ -48,8 +48,22 @@ jobs:
         with:
           fail-label: 'needs:feedback'
           pass-label: 'needs:code-review'
+          reviewer: GITHUB_USERNAME
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### (Optional) GitHub Personal Access Token (PAT)
+When the default `GITHUB_TOKEN` doesn't have the necessary permissions, you need to create a new GitHub personal access token. 
+
+For example, if you'd like to request a review from **GitHub teams**, you need to create a new PAT because the default `GITHUB_TOKEN` doesn't have the permission to request a review from a team.
+
+The PAT needs to have the `repo` scope and the account used for create a `PAT` needs to have the write permission to the repository. Once you create a new PAT, set it as a secret in your repository.
+
+You have to pass your `PAT` to `GITHUB_TOKEN`  environment variable, as below.
+```yml
+env:
+  GITHUB_TOKEN: ${{ secrets.PAT }}
 ```
 
 ## Support Level
