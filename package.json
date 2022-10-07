@@ -24,12 +24,12 @@
   },
   "scripts": {
     "lint": "eslint .",
-    "prepare": "ncc build index.js -o dist --source-map --license licenses.txt",
+    "prepare": "ncc build index.js -o dist",
     "all": "npm run lint && npm run prepare"
   },
   "dependencies": {
     "@actions/core": "^1.10.0",
-    "@actions/github": "^5.1.0",
+    "@actions/github": "^5.1.1",
     "@octokit/action": "^4.0.8"
   },  
   "devDependencies": {
