@@ -1,12 +1,15 @@
 # PR Helper - GitHub Action
 
-> GitHub Action that automates some common PR operations like validating PR description, changelog, and credits.
+> GitHub Action that automates some common PR operations like validating PR description, changelog and credits.
 
 [![Support Level](https://img.shields.io/badge/support-beta-blueviolet.svg)](#support-level) [![Release Version](https://img.shields.io/github/release/10up/action-pr-helper.svg)](https://github.com/10up/action-pr-helper/releases/latest) [![License](https://img.shields.io/github/license/10up/action-pr-helper.svg)](https://github.com/10up/action-pr-helper/blob/develop/LICENSE.md) [![CodeQL](https://github.com/10up/action-pr-helper/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/10up/action-pr-helper/actions/workflows/codeql-analysis.yml)
 
 ## Overview
-
-@TODO
+This GitHub Action Helps with the following operations:
+- **Validate PR description:** It validates PR description to make sure it contains description of the change, changelog and credits. Also, you can set custom comment message for PR author to inform them about PR description requirements.
+- **Add Labels:** It helps with adding label to PR when PR validation pass or fail.
+- **Auto-assign PR:** It helps with assigning PR to the author.
+- **Auto request review:** It helps with request review from the team or GitHub user given in the configuration.
 
 ## Configuration
 
@@ -22,7 +25,7 @@
 | fail-label | `needs:feedback` | The label to be added to PR if the pull request doesn't pass the validation |
 | pass-label | `needs:code-review` | The label to be added to PR if the pull request pass the validation |
 | comment-template | `{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?` | Comment template for adding comment on PR if it doesn't pass the validation |
-| reviewer | `team:open-source-practice` | Reviewer to request review after passing all validation checks. Add prefix `team:` if you want to assign PR to team.
+| reviewer | `team:open-source-practice` | Reviewer to request review after passing all validation checks. Add prefix `team:` if you want to request review from the team.
 
 ## Example Workflow File
 
