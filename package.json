@@ -1,15 +1,15 @@
 {
-  "name": "10up/action-pr-helper",
-  "version": "1.0.0",
+  "name": "10up/action-pr-automator",
+  "version": "1.0.1",
   "description": "GitHub Action to automate some common PR operations and validate PR description, changelog and credits.",
   "keywords": [
     "GitHub",
     "Actions",
     "JavaScript"
   ],
-  "homepage": "https://github.com/10up/action-pr-helper#readme",
+  "homepage": "https://github.com/10up/action-pr-automator#readme",
   "bugs": {
-    "url": "https://github.com/10up/action-pr-helper/issues"
+    "url": "https://github.com/10up/action-pr-automator/issues"
   },
   "license": "MIT",
   "author": {
@@ -20,7 +20,7 @@
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "git@github.com:10up/action-pr-helper.git"
+    "url": "git@github.com:10up/action-pr-automator.git"
   },
   "scripts": {
     "lint": "eslint .",
@@ -30,7 +30,7 @@
   "dependencies": {
     "@actions/core": "^1.10.0",
     "@actions/github": "^5.1.1",
-    "@octokit/action": "^4.0.8"
+    "@octokit/action": "^4.0.9"
   },  
   "devDependencies": {
     "@vercel/ncc": "^0.34.0",
