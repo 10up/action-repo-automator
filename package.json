@@ -1,7 +1,7 @@
 {
   "name": "10up/action-pr-helper",
-  "version": "0.0.1",
-  "description": "GH Action for automate some common PR operations and validate PR description, changelog and credits.",
+  "version": "1.0.0",
+  "description": "GitHub Action to automate some common PR operations and validate PR description, changelog and credits.",
   "keywords": [
     "GitHub",
     "Actions",
