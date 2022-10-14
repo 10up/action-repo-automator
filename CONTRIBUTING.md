@@ -29,10 +29,10 @@ The `develop` branch is the development branch which means it contains the next 
 ## Release instructions
 
 1. Branch: Starting from `develop`, cut a release branch named `release/X.Y.Z` for your changes.
-2. Version bump: Bump the version number in `package.json` and any other relevant files if it does not already reflect the version being released.
+2. Version bump: Bump the version number in `package.json`, `package-lock.json` and any other relevant files if it does not already reflect the version being released.
 3. Changelog: Add/update the changelog in `CHANGELOG.md`.
 4. Props: update `CREDITS.md` file with any new contributors, confirm maintainers are accurate.
-5. New files: Check to be sure any new files/paths that are unnecessary in the production version are included in `.gitattributes` or `.distignore`.
+5. New files: Check to be sure any new files/paths that are unnecessary in the production version are included in `.gitattributes`.
 6. Readme updates: Make any other readme changes as necessary.
 7. Merge: Make a non-fast-forward merge from your release branch to `develop` (or merge the pull request), then do the same for `develop` into `trunk` (`git checkout trunk && git merge --no-ff develop`). `trunk` contains the stable development version.
 8. Push: Push your `trunk` branch to GitHub (e.g. `git push origin trunk`).
