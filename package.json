@@ -1,6 +1,6 @@
 {
   "name": "10up/action-pr-automator",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "GitHub Action to automate some common PR operations and validate PR description, changelog and credits.",
   "keywords": [
     "GitHub",
