@@ -3029,7 +3029,7 @@ var authAction = __nccwpck_require__(20);
 var pluginPaginateRest = __nccwpck_require__(9331);
 var pluginRestEndpointMethods = __nccwpck_require__(8528);
 
-const VERSION = "4.0.8";
+const VERSION = "4.0.9";
 
 const HttpsProxyAgent = __nccwpck_require__(7219);
 
