@@ -1,4 +1,4 @@
-# PR Helper - GitHub Action
+# PR Automator - GitHub Action
 
 > GitHub Action that automates some common PR operations like validating PR description, changelog and credits.
 
@@ -29,10 +29,10 @@ This GitHub Action Helps with the following operations:
 
 ## Example Workflow File
 
-To get started, you will want to copy the contents of the given example into `.github/workflows/pr-helper.yml` and push that to your repository. You are welcome to name the file something else.
+To get started, you will want to copy the contents of the given example into `.github/workflows/pr-automator.yml` and push that to your repository. You are welcome to name the file something else.
 
 ```yml
-name: 'PR Helper'
+name: 'PR Automator'
 on:
   pull_request:
     types:
@@ -75,7 +75,7 @@ env:
 
 ## Changelog
 
-A complete listing of all notable changes to PR Helper - GitHub Action are documented in [CHANGELOG.md](https://github.com/10up/action-pr-automator/blob/develop/CHANGELOG.md).
+A complete listing of all notable changes to PR Automator - GitHub Action are documented in [CHANGELOG.md](https://github.com/10up/action-pr-automator/blob/develop/CHANGELOG.md).
 
 ## Contributing
 
