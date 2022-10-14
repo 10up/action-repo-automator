@@ -2,7 +2,7 @@
 
 > GitHub Action that automates some common PR operations like validating PR description, changelog and credits.
 
-[![Support Level](https://img.shields.io/badge/support-beta-blueviolet.svg)](#support-level) [![Release Version](https://img.shields.io/github/release/10up/action-pr-helper.svg)](https://github.com/10up/action-pr-helper/releases/latest) [![License](https://img.shields.io/github/license/10up/action-pr-helper.svg)](https://github.com/10up/action-pr-helper/blob/develop/LICENSE.md) [![CodeQL](https://github.com/10up/action-pr-helper/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/10up/action-pr-helper/actions/workflows/codeql-analysis.yml)
+[![Support Level](https://img.shields.io/badge/support-beta-blueviolet.svg)](#support-level) [![Release Version](https://img.shields.io/github/release/10up/action-pr-automator.svg)](https://github.com/10up/action-pr-automator/releases/latest) [![License](https://img.shields.io/github/license/10up/action-pr-automator.svg)](https://github.com/10up/action-pr-automator/blob/develop/LICENSE.md) [![CodeQL](https://github.com/10up/action-pr-automator/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/10up/action-pr-automator/actions/workflows/codeql-analysis.yml)
 
 ## Overview
 This GitHub Action Helps with the following operations:
@@ -47,7 +47,7 @@ jobs:
   Validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: 10up/action-pr-helper@trunk
+      - uses: 10up/action-pr-automator@trunk
         with:
           fail-label: 'needs:feedback'
           pass-label: 'needs:code-review'
@@ -75,11 +75,11 @@ env:
 
 ## Changelog
 
-A complete listing of all notable changes to PR Helper - GitHub Action are documented in [CHANGELOG.md](https://github.com/10up/action-pr-helper/blob/develop/CHANGELOG.md).
+A complete listing of all notable changes to PR Helper - GitHub Action are documented in [CHANGELOG.md](https://github.com/10up/action-pr-automator/blob/develop/CHANGELOG.md).
 
 ## Contributing
 
-Please read [CODE_OF_CONDUCT.md](https://github.com/10up/action-pr-helper/blob/develop/CODE_OF_CONDUCT.md) for details on our code of conduct, [CONTRIBUTING.md](https://github.com/10up/action-pr-helper/blob/develop/CONTRIBUTING.md) for details on the process for submitting pull requests to us, and [CREDITS.md](https://github.com/10up/action-pr-helper/blob/develop/CREDITS.md) for a list of maintainers, contributors, and libraries used in this repository.
+Please read [CODE_OF_CONDUCT.md](https://github.com/10up/action-pr-automator/blob/develop/CODE_OF_CONDUCT.md) for details on our code of conduct, [CONTRIBUTING.md](https://github.com/10up/action-pr-automator/blob/develop/CONTRIBUTING.md) for details on the process for submitting pull requests to us, and [CREDITS.md](https://github.com/10up/action-pr-automator/blob/develop/CREDITS.md) for a list of maintainers, contributors, and libraries used in this repository.
 
 ## Like what you see?
 

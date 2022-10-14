@@ -1,5 +1,5 @@
 {
-  "name": "10up/action-pr-helper",
+  "name": "10up/action-pr-automator",
   "version": "1.0.0",
   "description": "GitHub Action to automate some common PR operations and validate PR description, changelog and credits.",
   "keywords": [
@@ -7,9 +7,9 @@
     "Actions",
     "JavaScript"
   ],
-  "homepage": "https://github.com/10up/action-pr-helper#readme",
+  "homepage": "https://github.com/10up/action-pr-automator#readme",
   "bugs": {
-    "url": "https://github.com/10up/action-pr-helper/issues"
+    "url": "https://github.com/10up/action-pr-automator/issues"
   },
   "license": "MIT",
   "author": {
@@ -20,7 +20,7 @@
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "git@github.com:10up/action-pr-helper.git"
+    "url": "git@github.com:10up/action-pr-automator.git"
   },
   "scripts": {
     "lint": "eslint .",
