@@ -1,5 +1,8 @@
-name: 'PR Helper'
+name: 'PR Automator'
 description: 'GH Action for automate some common PR operations and validate PR description, changelog and credits.'
+branding:
+  icon: 'git-branch'
+  color: 'blue'
 inputs:
   assign-pr:
     description: "Wether assign PR to reporter"

@@ -8,6 +8,6 @@ All notable changes to this project will be documented in this file, per [the Ke
 ### Added
 - Initial project release 🎉
 
-[Unreleased]: https://github.com/10up/action-pr-helper/compare/trunk...develop
-[1.0.1]: https://github.com/10up/action-pr-helper/compare/1.0.0..1.0.1
-[1.0.0]: https://github.com/10up/action-pr-helper/releases/tag/1.0.0
+[Unreleased]: https://github.com/10up/action-pr-automator/compare/trunk...develop
+[1.0.1]: https://github.com/10up/action-pr-automator/compare/1.0.0..1.0.1
+[1.0.0]: https://github.com/10up/action-pr-automator/releases/tag/1.0.0
