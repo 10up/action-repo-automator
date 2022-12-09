@@ -13512,10 +13512,10 @@ function wrappy (fn, cb) {
 "use strict";
 __nccwpck_require__.r(__webpack_exports__);
 /* harmony export */ __nccwpck_require__.d(__webpack_exports__, {
-/* harmony export */   "getInputs": () => (/* binding */ getInputs),
-/* harmony export */   "getDescription": () => (/* binding */ getDescription),
+/* harmony export */   "getChangelog": () => (/* binding */ getChangelog),
 /* harmony export */   "getCredits": () => (/* binding */ getCredits),
-/* harmony export */   "getChangelog": () => (/* binding */ getChangelog)
+/* harmony export */   "getDescription": () => (/* binding */ getDescription),
+/* harmony export */   "getInputs": () => (/* binding */ getInputs)
 /* harmony export */ });
 const core = __nccwpck_require__(2186);
 
