@@ -14118,10 +14118,10 @@ class GitHub {
   
       if( milestone?.number ) {
         core.info(`Adding milestone - ${milestone.number}`);
-        const addMilestoneResponse = await this.octokit.pulls.update({
+        const addMilestoneResponse = await this.octokit.issues.update({
           owner: this.owner,
           repo: this.repo,
-          pull_number: this.issueNumber,
+          issue_number: this.issueNumber,
           milestone: milestone.number,
         });
         core.info(`Milestone Added - ${addMilestoneResponse.status}`);
