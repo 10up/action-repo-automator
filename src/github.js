@@ -1,6 +1,8 @@
 const core = require("@actions/core");
 const { Octokit } = require("@octokit/action");
 
+const { versionCompare } = require("./utils");
+
 export default class GitHub {
   constructor({ owner, repo, issueNumber }) {
     this.owner = owner;
@@ -46,9 +48,9 @@ export default class GitHub {
    */
   async addLabel(name) {
     try {
-      if ( !name ) {
+      if (!name) {
         return;
-      }      
+      }
       core.info(`Adding label (${name}) to PR...`);
       let addLabelResponse = await this.octokit.issues.addLabels({
         owner: this.owner,
@@ -101,7 +103,7 @@ export default class GitHub {
    */
   async addComment(message) {
     try {
-      if ( !message ) {
+      if (!message) {
         return;
       }
       // Check if comment is already there.
@@ -147,7 +149,7 @@ export default class GitHub {
    */
   async requestPRReview(prReviewer) {
     try {
-      if ( !prReviewer ) {
+      if (!prReviewer) {
         return;
       }
       const isTeam = prReviewer.startsWith("team:");
@@ -177,7 +179,7 @@ export default class GitHub {
    */
   async removePRReviewer(prReviewer, requestedReviewers) {
     try {
-      if( !prReviewer ) {
+      if (!prReviewer) {
         return;
       }
 
@@ -220,18 +222,23 @@ export default class GitHub {
     try {
       core.info("Adding milestone to PR...");
       const closingIssues = await this.getClosingIssues();
-      core.info(`Clossing Issues for PR - ${JSON.stringify(closingIssues, null, 2)}`);
-  
+      core.info(
+        `Clossing Issues for PR - ${JSON.stringify(closingIssues, null, 2)}`
+      );
+
+      // Get milestone from closing issues.
       let milestone;
-      const issues = closingIssues?.filter(issue => issue.milestone);
-      if( issues.length ) {
+      const issues = closingIssues?.filter((issue) => issue.milestone);
+      if (issues.length) {
         milestone = issues[0].milestone;
         core.info(`Milestone found for closing issues: ${milestone?.number}`);
       } else {
         core.info(`No milestone found for closing issues`);
+        // Get next milestone from open milestones in repo.
+        milestone = await this.getNextMilestone();
       }
-  
-      if( milestone?.number ) {
+
+      if (milestone?.number) {
         core.info(`Adding milestone - ${milestone.number}`);
         const addMilestoneResponse = await this.octokit.issues.update({
           owner: this.owner,
@@ -248,7 +255,7 @@ export default class GitHub {
 
   /**
    * Get Issues connected to PR.
-   * 
+   *
    * @returns array of issues
    */
   async getClosingIssues() {
@@ -282,11 +289,9 @@ export default class GitHub {
     const {
       repository: {
         pullRequest: {
-          closingIssuesReferences: {
-            edges: closingIssues
-          }
-        }
-      }
+          closingIssuesReferences: { edges: closingIssues },
+        },
+      },
     } = issuesResponse;
     core.debug(JSON.stringify(closingIssues, null, 2));
 
@@ -295,5 +300,53 @@ export default class GitHub {
     }
 
     return closingIssues.map(({ node }) => node);
+  }
+
+  /**
+   * Get next milestone.
+   * - Get all milestones.
+   * - Sort milestones (Version Compare)
+   * - return first milestone which is greater than current version.
+   *
+   * @returns {object} next milestone
+   */
+  async getNextMilestone() {
+    const {
+      data: { content, encoding },
+    } = await this.octokit.repos.getContent({
+      owner: this.owner,
+      repo: this.repo,
+      path: "package.json",
+    });
+    // Current version of plugin.
+    const { version } = JSON.parse(Buffer.from(content, encoding).toString());
+
+    const milestones = [];
+    const responses = this.octokit.paginate.iterator(
+      this.octokit.issues.listMilestones,
+      {
+        owner: this.owner,
+        repo: this.repo,
+        state: "open",
+        sort: "due_on",
+        direction: "desc",
+      }
+    );
+
+    for await (const response of responses) {
+      milestones.push(...response.data);
+    }
+
+    if (milestones.length === 0) {
+      return null;
+    }
+
+    if (version) {
+      return milestones
+        .sort((a, b) => versionCompare(a.title, b.title))
+        .find((milestone) => versionCompare(milestone.title, version) > 0);
+    }
+
+    return milestones.sort((a, b) => versionCompare(a.title, b.title))[0];
   }
 }

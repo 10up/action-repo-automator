@@ -110,3 +110,15 @@ export function getChangelog(payload) {
 
   return entries.filter((entry) => entry.length > 0);
 }
+
+/**
+ * Compare two version strings.
+ * 
+ * @param {string} a 
+ * @param {string} b
+ */
+export function versionCompare(a, b) {
+  if (a.startsWith(b + "-")) return -1
+  if (b.startsWith(a + "-")) return  1
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "case", caseFirst: "upper" })
+}
