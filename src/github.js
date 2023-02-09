@@ -217,9 +217,33 @@ export default class GitHub {
    * Add Milestone to PR
    */
   async addMilestone() {
-    const closingIssues = await this.getClosingIssues();
-    core.info(`Clossing Issues for PR - ${closingIssues}`);
-    core.info(closingIssues);
+    try {
+      core.info("Adding milestone to PR...");
+      const closingIssues = await this.getClosingIssues();
+      core.info(`Clossing Issues for PR - ${JSON.stringify(closingIssues, null, 2)}`);
+  
+      let milestone;
+      const issues = closingIssues?.filter(issue => issue.milestone);
+      if( issues.length ) {
+        milestone = issues[0].milestone;
+        core.info(`Milestone found for closing issues: ${milestone?.number}`);
+      } else {
+        core.info(`No milestone found for closing issues`);
+      }
+  
+      if( milestone?.number ) {
+        core.info(`Adding milestone - ${milestone.number}`);
+        const addMilestoneResponse = await this.octokit.pulls.update({
+          owner: this.owner,
+          repo: this.repo,
+          pull_number: this.issueNumber,
+          milestone: milestone.number,
+        });
+        core.info(`Milestone Added - ${addMilestoneResponse.status}`);
+      }
+    } catch (error) {
+      core.info(`Failed to Add Milestone to PR: ${error}`);
+    }
   }
 
   /**
