@@ -27,9 +27,11 @@ async function run() {
       draft: isDraft,
       assignees,
       user: author,
+      milestone
     } = pullRequest;
 
     const {
+      addMilestone,
       assignPullRequest,
       failLabel,
       passLabel,
@@ -109,10 +111,14 @@ async function run() {
     // 1. Remove fail label
     // 2. Add Pass label
     // 3. Request Review.
+    // 4. Add Milestone
     await gh.removeLabel(labels, failLabel);
     await gh.addLabel(passLabel);
     if ( requestedReviewers.length === 0 ) {
       await gh.requestPRReview(prReviewer);
+    }
+    if ( ! milestone && addMilestone) {
+      await gh.addMilestone();
     }
   } catch (error) {
     if (error instanceof Error) {

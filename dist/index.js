@@ -13577,6 +13577,8 @@ function getInputs() {
     core.getInput("reviewer") === "false"
       ? false
       : core.getInput("reviewer") || "team:open-source-practice";
+  const addMilestone =
+      core.getInput("add-milestone") === "false" ? false : true;
 
   // Add debug log of some information.
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
@@ -13584,12 +13586,14 @@ function getInputs() {
   core.debug(`Pass Label: ${passLabel} (${typeof passLabel})`);
   core.debug(`Comment Template: ${commentTemplate} (${typeof commentTemplate})`);
   core.debug(`PR reviewer: ${prReviewer} (${typeof prReviewer})`);
+  core.debug(`Add Milestone: ${addMilestone} (${typeof addMilestone})`);
 
   return {
+    addMilestone,
     assignPullRequest,
+    commentTemplate,
     failLabel,
     passLabel,
-    commentTemplate,
     prReviewer,
   };
 }
@@ -14093,6 +14097,66 @@ class GitHub {
       core.info(`Failed to remove reviewer from PR: ${error}`);
     }
   }
+
+  /**
+   * Add Milestone to PR
+   */
+  async addMilestone() {
+    const closingIssues = await this.getClosingIssues();
+    core.info(`Clossing Issues for PR - ${closingIssues}`);
+    core.info(closingIssues);
+  }
+
+  /**
+   * Get Issues connected to PR.
+   * 
+   * @returns array of issues
+   */
+  async getClosingIssues() {
+    const query = `query getClosingIssues($owner: String!, $repo: String!, $prNumber:  Int!) { 
+      repository(owner:$owner, name: $repo) {
+        pullRequest(number: $prNumber) {
+          closingIssuesReferences(first: 100) {
+            edges {
+              node {
+                id
+                number
+                milestone {
+                  id
+                  number
+                }
+              }
+            }
+          }
+        }
+      }
+    }`;
+
+    core.debug(query);
+    const issuesResponse = await this.octokit.graphql(query, {
+      headers: {},
+      prNumber: this.issueNumber,
+      owner: this.owner,
+      repo: this.repo,
+    });
+
+    const {
+      repository: {
+        pullRequest: {
+          closingIssuesReferences: {
+            edges: closingIssues
+          }
+        }
+      }
+    } = issuesResponse;
+    core.debug(JSON.stringify(closingIssues, null, 2));
+
+    if (closingIssues.length === 0) {
+      return [];
+    }
+
+    return closingIssues.map(({ node }) => node);
+  }
 }
 
 ;// CONCATENATED MODULE: ./index.js
@@ -14125,9 +14189,11 @@ async function run() {
       draft: isDraft,
       assignees,
       user: author,
+      milestone
     } = pullRequest;
 
     const {
+      addMilestone,
       assignPullRequest,
       failLabel,
       passLabel,
@@ -14207,10 +14273,14 @@ async function run() {
     // 1. Remove fail label
     // 2. Add Pass label
     // 3. Request Review.
+    // 4. Add Milestone
     await gh.removeLabel(labels, failLabel);
     await gh.addLabel(passLabel);
     if ( requestedReviewers.length === 0 ) {
       await gh.requestPRReview(prReviewer);
+    }
+    if ( ! milestone && addMilestone) {
+      await gh.addMilestone();
     }
   } catch (error) {
     if (error instanceof Error) {

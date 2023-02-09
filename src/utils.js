@@ -26,6 +26,8 @@ export function getInputs() {
     core.getInput("reviewer") === "false"
       ? false
       : core.getInput("reviewer") || "team:open-source-practice";
+  const addMilestone =
+      core.getInput("add-milestone") === "false" ? false : true;
 
   // Add debug log of some information.
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
@@ -33,12 +35,14 @@ export function getInputs() {
   core.debug(`Pass Label: ${passLabel} (${typeof passLabel})`);
   core.debug(`Comment Template: ${commentTemplate} (${typeof commentTemplate})`);
   core.debug(`PR reviewer: ${prReviewer} (${typeof prReviewer})`);
+  core.debug(`Add Milestone: ${addMilestone} (${typeof addMilestone})`);
 
   return {
+    addMilestone,
     assignPullRequest,
+    commentTemplate,
     failLabel,
     passLabel,
-    commentTemplate,
     prReviewer,
   };
 }

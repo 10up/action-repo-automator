@@ -212,4 +212,64 @@ export default class GitHub {
       core.info(`Failed to remove reviewer from PR: ${error}`);
     }
   }
+
+  /**
+   * Add Milestone to PR
+   */
+  async addMilestone() {
+    const closingIssues = await this.getClosingIssues();
+    core.info(`Clossing Issues for PR - ${closingIssues}`);
+    core.info(closingIssues);
+  }
+
+  /**
+   * Get Issues connected to PR.
+   * 
+   * @returns array of issues
+   */
+  async getClosingIssues() {
+    const query = `query getClosingIssues($owner: String!, $repo: String!, $prNumber:  Int!) { 
+      repository(owner:$owner, name: $repo) {
+        pullRequest(number: $prNumber) {
+          closingIssuesReferences(first: 100) {
+            edges {
+              node {
+                id
+                number
+                milestone {
+                  id
+                  number
+                }
+              }
+            }
+          }
+        }
+      }
+    }`;
+
+    core.debug(query);
+    const issuesResponse = await this.octokit.graphql(query, {
+      headers: {},
+      prNumber: this.issueNumber,
+      owner: this.owner,
+      repo: this.repo,
+    });
+
+    const {
+      repository: {
+        pullRequest: {
+          closingIssuesReferences: {
+            edges: closingIssues
+          }
+        }
+      }
+    } = issuesResponse;
+    core.debug(JSON.stringify(closingIssues, null, 2));
+
+    if (closingIssues.length === 0) {
+      return [];
+    }
+
+    return closingIssues.map(({ node }) => node);
+  }
 }
