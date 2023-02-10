@@ -20,8 +20,8 @@ inputs:
     description: "Comment template for adding comment on PR if it doesn't pass the validation"
     required: false
     default: '{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?'
-  reviewer:
-    description: 'Reviewer to request review after passing all validation checks'
+  reviewers:
+    description: 'Reviewers to request review after passing all validation checks'
     required: false
 runs:
   using: 'node16'
