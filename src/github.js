@@ -165,6 +165,11 @@ export default class GitHub {
         }
       });
 
+      // Skip if no reviewers to request review.
+      if (!reviewers.reviewers?.length && !reviewers.team_reviewers?.length) {
+        return;
+      }
+
       // Request Review.
       core.info("Requesting review...");
       let requestReviewResponse = await this.octokit.pulls.requestReviewers({

@@ -13554,10 +13554,10 @@ const core = __nccwpck_require__(2186);
 /**
  * Get PR description.
  *
- * @param {object} payload Pull request payload
+ * @param {object} pullRequest Pull request payload
  * @returns string
  */
-function getInputs() {
+function getInputs(pullRequest) {
   const assignPullRequest =
     core.getInput("assign-pr") === "false" ? false : true;
   const failLabel =
@@ -13574,6 +13574,7 @@ function getInputs() {
       : core.getInput("comment-template") ||
         "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?";
 
+  const authorLogin = pullRequest?.user?.login;
   const reviewers = core.getMultilineInput("reviewers");
   let prReviewers = reviewers[0] === "false" ? false : reviewers;
   if (prReviewers.length === 0) {
@@ -13585,6 +13586,10 @@ function getInputs() {
     } else {
       prReviewers = prReviewer ? [prReviewer] : ["team:open-source-practice"];
     }
+  }
+  core.info('Remove PR author from PR reviewers.');
+  if( prReviewers.length){
+    prReviewers = prReviewers.filter((reviewer) => reviewer !== authorLogin);
   }
 
   // Add debug log of some information.
@@ -14057,6 +14062,11 @@ class GitHub {
         }
       });
 
+      // Skip if no reviewers to request review.
+      if (!reviewers.reviewers?.length && !reviewers.team_reviewers?.length) {
+        return;
+      }
+
       // Request Review.
       core.info("Requesting review...");
       let requestReviewResponse = await this.octokit.pulls.requestReviewers({
@@ -14167,7 +14177,7 @@ async function run() {
       passLabel,
       commentTemplate,
       prReviewers,
-    } = getInputs();
+    } = getInputs(pullRequest);
     index_core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
     index_core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
 

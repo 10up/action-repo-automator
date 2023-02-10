@@ -3,10 +3,10 @@ const core = require("@actions/core");
 /**
  * Get PR description.
  *
- * @param {object} payload Pull request payload
+ * @param {object} pullRequest Pull request payload
  * @returns string
  */
-export function getInputs() {
+export function getInputs(pullRequest) {
   const assignPullRequest =
     core.getInput("assign-pr") === "false" ? false : true;
   const failLabel =
@@ -23,6 +23,7 @@ export function getInputs() {
       : core.getInput("comment-template") ||
         "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?";
 
+  const authorLogin = pullRequest?.user?.login;
   const reviewers = core.getMultilineInput("reviewers");
   let prReviewers = reviewers[0] === "false" ? false : reviewers;
   if (prReviewers.length === 0) {
@@ -34,6 +35,10 @@ export function getInputs() {
     } else {
       prReviewers = prReviewer ? [prReviewer] : ["team:open-source-practice"];
     }
+  }
+  core.info('Remove PR author from PR reviewers.');
+  if( prReviewers.length){
+    prReviewers = prReviewers.filter((reviewer) => reviewer !== authorLogin);
   }
 
   // Add debug log of some information.

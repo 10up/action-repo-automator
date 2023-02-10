@@ -35,7 +35,7 @@ async function run() {
       passLabel,
       commentTemplate,
       prReviewers,
-    } = getInputs();
+    } = getInputs(pullRequest);
     core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
     core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
 
