@@ -57,6 +57,11 @@ async function run() {
       await gh.assignPR(author);
     }
 
+    // Add milestone to PR
+    if (!milestone && addMilestone) {
+      await gh.addMilestone();
+    }
+
     // Skip Draft PR
     if (isDraft) {
       // Remove labels and review to handle case of switch PR back draft.
@@ -110,14 +115,10 @@ async function run() {
     // 1. Remove fail label
     // 2. Add Pass label
     // 3. Request Review.
-    // 4. Add Milestone
     await gh.removeLabel(labels, failLabel);
     await gh.addLabel(passLabel);
     if (requestedReviewers.length === 0) {
       await gh.requestPRReview(prReviewer);
-    }
-    if (!milestone && addMilestone) {
-      await gh.addMilestone();
     }
   } catch (error) {
     if (error instanceof Error) {
