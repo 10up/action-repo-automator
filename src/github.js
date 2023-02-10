@@ -281,6 +281,7 @@ export default class GitHub {
                 milestone {
                   id
                   number
+                  title
                 }
               }
             }
@@ -289,7 +290,6 @@ export default class GitHub {
       }
     }`;
 
-    core.debug(query);
     const issuesResponse = await this.octokit.graphql(query, {
       headers: {},
       prNumber: this.issueNumber,
