@@ -14121,17 +14121,28 @@ class GitHub {
       core.info("Adding milestone to PR...");
       const closingIssues = await this.getClosingIssues();
       core.info(
-        `Clossing Issues for PR - ${JSON.stringify(closingIssues, null, 2)}`
+        `Closing Issues for PR - ${JSON.stringify(closingIssues, null, 2)}`
       );
 
       // Get milestone from closing issues.
       let milestone;
-      const issues = closingIssues?.filter((issue) => issue.milestone);
+      const issues = closingIssues
+        ?.filter((issue) => issue.milestone)
+        .sort((a, b) => versionCompare(a.milestone?.title, b.milestone?.title));
+
       if (issues.length) {
-        milestone = issues[0].milestone;
+        milestone = issues[0]?.milestone;
+        // Ignore milestone lower than current plugin version.
+        const version = await this.getPluginVersion();
+        if (version) {
+          milestone = issues.find(
+            (issue) => versionCompare(issue.milestone.title, version) > 0
+          )?.milestone;
+        }
         core.info(`Milestone found for closing issues: ${milestone?.number}`);
       } else {
         core.info(`No milestone found for closing issues`);
+        core.info(`Find next milestone from open milestones in repo.`);
         // Get next milestone from open milestones in repo.
         milestone = await this.getNextMilestone();
       }
@@ -14209,16 +14220,7 @@ class GitHub {
    * @returns {object} next milestone
    */
   async getNextMilestone() {
-    const {
-      data: { content, encoding },
-    } = await this.octokit.repos.getContent({
-      owner: this.owner,
-      repo: this.repo,
-      path: "package.json",
-    });
-    // Current version of plugin.
-    const { version } = JSON.parse(Buffer.from(content, encoding).toString());
-
+    const version = await this.getPluginVersion();
     const milestones = [];
     const responses = this.octokit.paginate.iterator(
       this.octokit.issues.listMilestones,
@@ -14246,6 +14248,24 @@ class GitHub {
     }
 
     return milestones.sort((a, b) => versionCompare(a.title, b.title))[0];
+  }
+
+  /**
+   * Get Plugin version from package.json
+   *
+   * @returns {string} current version of plugin
+   */
+  async getPluginVersion() {
+    const {
+      data: { content, encoding },
+    } = await this.octokit.repos.getContent({
+      owner: this.owner,
+      repo: this.repo,
+      path: "package.json",
+    });
+    // Current version of plugin.
+    const { version } = JSON.parse(Buffer.from(content, encoding).toString());
+    return version;
   }
 }
 
