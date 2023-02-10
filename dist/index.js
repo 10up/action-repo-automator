@@ -13558,6 +13558,8 @@ const core = __nccwpck_require__(2186);
  * @returns string
  */
 function getInputs() {
+  const assignIssues =
+    core.getInput("assign-issues") === "false" ? false : true;
   const assignPullRequest =
     core.getInput("assign-pr") === "false" ? false : true;
   const failLabel =
@@ -13579,13 +13581,17 @@ function getInputs() {
       : core.getInput("reviewer") || "team:open-source-practice";
 
   // Add debug log of some information.
+  core.debug(`Assign Issues: ${assignIssues} (${typeof assignIssues})`);
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
   core.debug(`Fail Label: ${failLabel} (${typeof failLabel})`);
   core.debug(`Pass Label: ${passLabel} (${typeof passLabel})`);
-  core.debug(`Comment Template: ${commentTemplate} (${typeof commentTemplate})`);
+  core.debug(
+    `Comment Template: ${commentTemplate} (${typeof commentTemplate})`
+  );
   core.debug(`PR reviewer: ${prReviewer} (${typeof prReviewer})`);
 
   return {
+    assignIssues,
     assignPullRequest,
     failLabel,
     passLabel,
@@ -13927,9 +13933,9 @@ class GitHub {
    */
   async addLabel(name) {
     try {
-      if ( !name ) {
+      if (!name) {
         return;
-      }      
+      }
       core.info(`Adding label (${name}) to PR...`);
       let addLabelResponse = await this.octokit.issues.addLabels({
         owner: this.owner,
@@ -13982,7 +13988,7 @@ class GitHub {
    */
   async addComment(message) {
     try {
-      if ( !message ) {
+      if (!message) {
         return;
       }
       // Check if comment is already there.
@@ -14028,7 +14034,7 @@ class GitHub {
    */
   async requestPRReview(prReviewer) {
     try {
-      if ( !prReviewer ) {
+      if (!prReviewer) {
         return;
       }
       const isTeam = prReviewer.startsWith("team:");
@@ -14058,7 +14064,7 @@ class GitHub {
    */
   async removePRReviewer(prReviewer, requestedReviewers) {
     try {
-      if( !prReviewer ) {
+      if (!prReviewer) {
         return;
       }
 
@@ -14092,6 +14098,95 @@ class GitHub {
     } catch (error) {
       core.info(`Failed to remove reviewer from PR: ${error}`);
     }
+  }
+
+  /**
+   * Assign Issue connected to PR to given user.
+   *
+   * @param {object} prAuthor
+   * @returns void
+   */
+  async assignIssues(prAuthor) {
+    try {
+      if ("User" !== prAuthor.type) {
+        core.info(
+          `PR author(${prAuthor.login}) is not user. Skipping assign PR.`
+        );
+        return;
+      }
+
+      // Get Issues connected to PR.
+      const issues = await this.getClosingIssues();
+      if (!issues.length) {
+        core.info(`No issues connected to PR.`);
+        return;
+      }
+
+      // Assign Issues to PR author.
+      core.info(`Assigning issues to author(${prAuthor.login})...`);
+      for (const issue of issues) {
+        let addAssigneesResponse = await this.octokit.issues.addAssignees({
+          owner: this.owner,
+          repo: this.repo,
+          issue_number: issue.number,
+          assignees: [prAuthor.login],
+        });
+        core.info(
+          `Issue(#${issue.number}) assigned to (${prAuthor.login}) - ${addAssigneesResponse.status}`
+        );
+      }
+    } catch (error) {
+      core.info(`Failed assigned PR to (${prAuthor.login}) : ${error}`);
+    }
+  }
+
+  /**
+   * Get Issues connected to PR.
+   *
+   * @returns array of issues
+   */
+  async getClosingIssues() {
+    const query = `query getClosingIssues($owner: String!, $repo: String!, $prNumber:  Int!) { 
+      repository(owner:$owner, name: $repo) {
+        pullRequest(number: $prNumber) {
+          closingIssuesReferences(first: 100) {
+            edges {
+              node {
+                id
+                number
+                milestone {
+                  id
+                  number
+                  title
+                }
+              }
+            }
+          }
+        }
+      }
+    }`;
+
+    const issuesResponse = await this.octokit.graphql(query, {
+      headers: {},
+      prNumber: this.issueNumber,
+      owner: this.owner,
+      repo: this.repo,
+    });
+
+    const {
+      repository: {
+        pullRequest: {
+          closingIssuesReferences: { edges: closingIssues },
+        },
+      },
+    } = issuesResponse;
+    core.debug(JSON.stringify(closingIssues, null, 2));
+
+    if (closingIssues.length === 0) {
+      return [];
+    }
+
+    return closingIssues.map(({ node }) => node);
   }
 }
 
@@ -14128,6 +14223,7 @@ async function run() {
     } = pullRequest;
 
     const {
+      assignIssues,
       assignPullRequest,
       failLabel,
       passLabel,
@@ -14152,6 +14248,12 @@ async function run() {
     ) {
       index_core.info("PR is unassigned, assigning PR");
       await gh.assignPR(author);
+    }
+
+    // Assign Issues to author
+    if (assignIssues) {
+      index_core.info("Assigning issues to PR author");
+      await gh.assignIssues(author);
     }
 
     // Skip Draft PR

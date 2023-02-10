@@ -46,9 +46,9 @@ export default class GitHub {
    */
   async addLabel(name) {
     try {
-      if ( !name ) {
+      if (!name) {
         return;
-      }      
+      }
       core.info(`Adding label (${name}) to PR...`);
       let addLabelResponse = await this.octokit.issues.addLabels({
         owner: this.owner,
@@ -101,7 +101,7 @@ export default class GitHub {
    */
   async addComment(message) {
     try {
-      if ( !message ) {
+      if (!message) {
         return;
       }
       // Check if comment is already there.
@@ -147,7 +147,7 @@ export default class GitHub {
    */
   async requestPRReview(prReviewer) {
     try {
-      if ( !prReviewer ) {
+      if (!prReviewer) {
         return;
       }
       const isTeam = prReviewer.startsWith("team:");
@@ -177,7 +177,7 @@ export default class GitHub {
    */
   async removePRReviewer(prReviewer, requestedReviewers) {
     try {
-      if( !prReviewer ) {
+      if (!prReviewer) {
         return;
       }
 
@@ -211,5 +211,94 @@ export default class GitHub {
     } catch (error) {
       core.info(`Failed to remove reviewer from PR: ${error}`);
     }
+  }
+
+  /**
+   * Assign Issue connected to PR to given user.
+   *
+   * @param {object} prAuthor
+   * @returns void
+   */
+  async assignIssues(prAuthor) {
+    try {
+      if ("User" !== prAuthor.type) {
+        core.info(
+          `PR author(${prAuthor.login}) is not user. Skipping assign PR.`
+        );
+        return;
+      }
+
+      // Get Issues connected to PR.
+      const issues = await this.getClosingIssues();
+      if (!issues.length) {
+        core.info(`No issues connected to PR.`);
+        return;
+      }
+
+      // Assign Issues to PR author.
+      core.info(`Assigning issues to author(${prAuthor.login})...`);
+      for (const issue of issues) {
+        let addAssigneesResponse = await this.octokit.issues.addAssignees({
+          owner: this.owner,
+          repo: this.repo,
+          issue_number: issue.number,
+          assignees: [prAuthor.login],
+        });
+        core.info(
+          `Issue(#${issue.number}) assigned to (${prAuthor.login}) - ${addAssigneesResponse.status}`
+        );
+      }
+    } catch (error) {
+      core.info(`Failed assigned PR to (${prAuthor.login}) : ${error}`);
+    }
+  }
+
+  /**
+   * Get Issues connected to PR.
+   *
+   * @returns array of issues
+   */
+  async getClosingIssues() {
+    const query = `query getClosingIssues($owner: String!, $repo: String!, $prNumber:  Int!) { 
+      repository(owner:$owner, name: $repo) {
+        pullRequest(number: $prNumber) {
+          closingIssuesReferences(first: 100) {
+            edges {
+              node {
+                id
+                number
+                milestone {
+                  id
+                  number
+                  title
+                }
+              }
+            }
+          }
+        }
+      }
+    }`;
+
+    const issuesResponse = await this.octokit.graphql(query, {
+      headers: {},
+      prNumber: this.issueNumber,
+      owner: this.owner,
+      repo: this.repo,
+    });
+
+    const {
+      repository: {
+        pullRequest: {
+          closingIssuesReferences: { edges: closingIssues },
+        },
+      },
+    } = issuesResponse;
+    core.debug(JSON.stringify(closingIssues, null, 2));
+
+    if (closingIssues.length === 0) {
+      return [];
+    }
+
+    return closingIssues.map(({ node }) => node);
   }
 }

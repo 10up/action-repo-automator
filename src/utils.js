@@ -7,6 +7,8 @@ const core = require("@actions/core");
  * @returns string
  */
 export function getInputs() {
+  const assignIssues =
+    core.getInput("assign-issues") === "false" ? false : true;
   const assignPullRequest =
     core.getInput("assign-pr") === "false" ? false : true;
   const failLabel =
@@ -28,13 +30,17 @@ export function getInputs() {
       : core.getInput("reviewer") || "team:open-source-practice";
 
   // Add debug log of some information.
+  core.debug(`Assign Issues: ${assignIssues} (${typeof assignIssues})`);
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
   core.debug(`Fail Label: ${failLabel} (${typeof failLabel})`);
   core.debug(`Pass Label: ${passLabel} (${typeof passLabel})`);
-  core.debug(`Comment Template: ${commentTemplate} (${typeof commentTemplate})`);
+  core.debug(
+    `Comment Template: ${commentTemplate} (${typeof commentTemplate})`
+  );
   core.debug(`PR reviewer: ${prReviewer} (${typeof prReviewer})`);
 
   return {
+    assignIssues,
     assignPullRequest,
     failLabel,
     passLabel,
