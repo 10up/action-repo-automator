@@ -13573,24 +13573,35 @@ function getInputs() {
       ? false
       : core.getInput("comment-template") ||
         "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?";
-  const prReviewer =
-    core.getInput("reviewer") === "false"
-      ? false
-      : core.getInput("reviewer") || "team:open-source-practice";
+
+  const reviewers = core.getMultilineInput("reviewers");
+  let prReviewers = reviewers[0] === "false" ? false : reviewers;
+  if (prReviewers.length === 0) {
+    // Check "reviewer" for backward compatibility.
+    const prReviewer =
+      core.getInput("reviewer") === "false" ? false : core.getInput("reviewer");
+    if (prReviewer === false) {
+      prReviewers = false;
+    } else {
+      prReviewers = prReviewer ? [prReviewer] : ["team:open-source-practice"];
+    }
+  }
 
   // Add debug log of some information.
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
   core.debug(`Fail Label: ${failLabel} (${typeof failLabel})`);
   core.debug(`Pass Label: ${passLabel} (${typeof passLabel})`);
-  core.debug(`Comment Template: ${commentTemplate} (${typeof commentTemplate})`);
-  core.debug(`PR reviewer: ${prReviewer} (${typeof prReviewer})`);
+  core.debug(
+    `Comment Template: ${commentTemplate} (${typeof commentTemplate})`
+  );
+  core.debug(`PR reviewers: ${prReviewers} (${typeof prReviewers})`);
 
   return {
     assignPullRequest,
     failLabel,
     passLabel,
     commentTemplate,
-    prReviewer,
+    prReviewers,
   };
 }
 
@@ -13927,9 +13938,9 @@ class GitHub {
    */
   async addLabel(name) {
     try {
-      if ( !name ) {
+      if (!name) {
         return;
-      }      
+      }
       core.info(`Adding label (${name}) to PR...`);
       let addLabelResponse = await this.octokit.issues.addLabels({
         owner: this.owner,
@@ -13982,7 +13993,7 @@ class GitHub {
    */
   async addComment(message) {
     try {
-      if ( !message ) {
+      if (!message) {
         return;
       }
       // Check if comment is already there.
@@ -14024,18 +14035,27 @@ class GitHub {
   /**
    * Request review on PR.
    *
-   * @param {string} prReviewer
+   * @param {string[]|boolean} prReviewers
    */
-  async requestPRReview(prReviewer) {
+  async requestPRReview(prReviewers) {
     try {
-      if ( !prReviewer ) {
+      if (!prReviewers) {
         return;
       }
-      const isTeam = prReviewer.startsWith("team:");
-      const reviewer = prReviewer.replace("team:", "");
-      const reviewers = isTeam
-        ? { team_reviewers: [reviewer] }
-        : { reviewers: [reviewer] };
+
+      const reviewers = {};
+      prReviewers.forEach((prReviewer) => {
+        const isTeam = prReviewer.startsWith("team:");
+        const reviewer = prReviewer.replace("team:", "");
+        if (isTeam) {
+          reviewers.team_reviewers = [
+            ...(reviewers.team_reviewers || []),
+            reviewer,
+          ];
+        } else {
+          reviewers.reviewers = [...(reviewers.reviewers || []), reviewer];
+        }
+      });
 
       // Request Review.
       core.info("Requesting review...");
@@ -14054,28 +14074,42 @@ class GitHub {
   /**
    * remove reviewer from PR.
    *
-   * @param {string} prReviewer
+   * @param {string[]|boolean} prReviewers
    */
-  async removePRReviewer(prReviewer, requestedReviewers) {
+  async removePRReviewer(prReviewers, requestedReviewers) {
     try {
-      if( !prReviewer ) {
+      if (!prReviewers) {
         return;
       }
 
-      const isTeam = prReviewer.startsWith("team:");
-      const reviewer = prReviewer.replace("team:", "");
-      const reviewers = isTeam
-        ? { team_reviewers: [reviewer] }
-        : { reviewers: [reviewer] };
+      const reviewers = {};
+      prReviewers.forEach((prReviewer) => {
+        const isTeam = prReviewer.startsWith("team:");
+        const reviewer = prReviewer.replace("team:", "");
 
-      if (
-        !requestedReviewers
-          ?.map((ele) =>
-            isTeam ? ele.slug.toLowerCase() : ele.login.toLowerCase()
-          )
-          ?.includes(reviewer.toLowerCase())
-      ) {
-        // Skip if review not requested from given team.
+        if (
+          !requestedReviewers
+            ?.map((ele) =>
+              isTeam ? ele.slug?.toLowerCase() : ele.login?.toLowerCase()
+            )
+            ?.includes(reviewer.toLowerCase())
+        ) {
+          // Skip if review not requested from given team/users.
+          return;
+        }
+
+        if (isTeam) {
+          reviewers.team_reviewers = [
+            ...(reviewers.team_reviewers || []),
+            reviewer,
+          ];
+        } else {
+          reviewers.reviewers = [...(reviewers.reviewers || []), reviewer];
+        }
+      });
+
+      // Skip if no reviewers to remove.
+      if (!reviewers.reviewers?.length && !reviewers.team_reviewers?.length) {
         return;
       }
 
@@ -14132,7 +14166,7 @@ async function run() {
       failLabel,
       passLabel,
       commentTemplate,
-      prReviewer,
+      prReviewers,
     } = getInputs();
     index_core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
     index_core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
@@ -14141,7 +14175,7 @@ async function run() {
     if ("Bot" === author.type) {
       // Skip validation against bot user.
       await gh.addLabel(passLabel);
-      await gh.requestPRReview(prReviewer);
+      await gh.requestPRReview(prReviewers);
       return;
     }
 
@@ -14159,7 +14193,7 @@ async function run() {
       // Remove labels and review to handle case of switch PR back draft.
       await gh.removeLabel(labels, failLabel);
       await gh.removeLabel(labels, passLabel);
-      await gh.removePRReviewer(prReviewer, requestedReviewers);
+      await gh.removePRReviewer(prReviewers, requestedReviewers);
 
       index_core.info("Skipping DRAFT PR validation!");
       return;
@@ -14210,7 +14244,7 @@ async function run() {
     await gh.removeLabel(labels, failLabel);
     await gh.addLabel(passLabel);
     if ( requestedReviewers.length === 0 ) {
-      await gh.requestPRReview(prReviewer);
+      await gh.requestPRReview(prReviewers);
     }
   } catch (error) {
     if (error instanceof Error) {

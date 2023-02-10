@@ -46,9 +46,9 @@ export default class GitHub {
    */
   async addLabel(name) {
     try {
-      if ( !name ) {
+      if (!name) {
         return;
-      }      
+      }
       core.info(`Adding label (${name}) to PR...`);
       let addLabelResponse = await this.octokit.issues.addLabels({
         owner: this.owner,
@@ -101,7 +101,7 @@ export default class GitHub {
    */
   async addComment(message) {
     try {
-      if ( !message ) {
+      if (!message) {
         return;
       }
       // Check if comment is already there.
@@ -143,18 +143,27 @@ export default class GitHub {
   /**
    * Request review on PR.
    *
-   * @param {string} prReviewer
+   * @param {string[]|boolean} prReviewers
    */
-  async requestPRReview(prReviewer) {
+  async requestPRReview(prReviewers) {
     try {
-      if ( !prReviewer ) {
+      if (!prReviewers) {
         return;
       }
-      const isTeam = prReviewer.startsWith("team:");
-      const reviewer = prReviewer.replace("team:", "");
-      const reviewers = isTeam
-        ? { team_reviewers: [reviewer] }
-        : { reviewers: [reviewer] };
+
+      const reviewers = {};
+      prReviewers.forEach((prReviewer) => {
+        const isTeam = prReviewer.startsWith("team:");
+        const reviewer = prReviewer.replace("team:", "");
+        if (isTeam) {
+          reviewers.team_reviewers = [
+            ...(reviewers.team_reviewers || []),
+            reviewer,
+          ];
+        } else {
+          reviewers.reviewers = [...(reviewers.reviewers || []), reviewer];
+        }
+      });
 
       // Request Review.
       core.info("Requesting review...");
@@ -173,28 +182,42 @@ export default class GitHub {
   /**
    * remove reviewer from PR.
    *
-   * @param {string} prReviewer
+   * @param {string[]|boolean} prReviewers
    */
-  async removePRReviewer(prReviewer, requestedReviewers) {
+  async removePRReviewer(prReviewers, requestedReviewers) {
     try {
-      if( !prReviewer ) {
+      if (!prReviewers) {
         return;
       }
 
-      const isTeam = prReviewer.startsWith("team:");
-      const reviewer = prReviewer.replace("team:", "");
-      const reviewers = isTeam
-        ? { team_reviewers: [reviewer] }
-        : { reviewers: [reviewer] };
+      const reviewers = {};
+      prReviewers.forEach((prReviewer) => {
+        const isTeam = prReviewer.startsWith("team:");
+        const reviewer = prReviewer.replace("team:", "");
 
-      if (
-        !requestedReviewers
-          ?.map((ele) =>
-            isTeam ? ele.slug.toLowerCase() : ele.login.toLowerCase()
-          )
-          ?.includes(reviewer.toLowerCase())
-      ) {
-        // Skip if review not requested from given team.
+        if (
+          !requestedReviewers
+            ?.map((ele) =>
+              isTeam ? ele.slug?.toLowerCase() : ele.login?.toLowerCase()
+            )
+            ?.includes(reviewer.toLowerCase())
+        ) {
+          // Skip if review not requested from given team/users.
+          return;
+        }
+
+        if (isTeam) {
+          reviewers.team_reviewers = [
+            ...(reviewers.team_reviewers || []),
+            reviewer,
+          ];
+        } else {
+          reviewers.reviewers = [...(reviewers.reviewers || []), reviewer];
+        }
+      });
+
+      // Skip if no reviewers to remove.
+      if (!reviewers.reviewers?.length && !reviewers.team_reviewers?.length) {
         return;
       }
 

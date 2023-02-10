@@ -22,24 +22,35 @@ export function getInputs() {
       ? false
       : core.getInput("comment-template") ||
         "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?";
-  const prReviewer =
-    core.getInput("reviewer") === "false"
-      ? false
-      : core.getInput("reviewer") || "team:open-source-practice";
+
+  const reviewers = core.getMultilineInput("reviewers");
+  let prReviewers = reviewers[0] === "false" ? false : reviewers;
+  if (prReviewers.length === 0) {
+    // Check "reviewer" for backward compatibility.
+    const prReviewer =
+      core.getInput("reviewer") === "false" ? false : core.getInput("reviewer");
+    if (prReviewer === false) {
+      prReviewers = false;
+    } else {
+      prReviewers = prReviewer ? [prReviewer] : ["team:open-source-practice"];
+    }
+  }
 
   // Add debug log of some information.
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
   core.debug(`Fail Label: ${failLabel} (${typeof failLabel})`);
   core.debug(`Pass Label: ${passLabel} (${typeof passLabel})`);
-  core.debug(`Comment Template: ${commentTemplate} (${typeof commentTemplate})`);
-  core.debug(`PR reviewer: ${prReviewer} (${typeof prReviewer})`);
+  core.debug(
+    `Comment Template: ${commentTemplate} (${typeof commentTemplate})`
+  );
+  core.debug(`PR reviewers: ${prReviewers} (${typeof prReviewers})`);
 
   return {
     assignPullRequest,
     failLabel,
     passLabel,
     commentTemplate,
-    prReviewer,
+    prReviewers,
   };
 }
 
