@@ -12,7 +12,6 @@ const {
 const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
 const issueNumber = github.context.issue.number;
 
-
 async function run() {
   try {
     const gh = new GitHub({
@@ -27,7 +26,7 @@ async function run() {
       draft: isDraft,
       assignees,
       user: author,
-      milestone
+      milestone,
     } = pullRequest;
 
     const {
@@ -114,10 +113,10 @@ async function run() {
     // 4. Add Milestone
     await gh.removeLabel(labels, failLabel);
     await gh.addLabel(passLabel);
-    if ( requestedReviewers.length === 0 ) {
+    if (requestedReviewers.length === 0) {
       await gh.requestPRReview(prReviewer);
     }
-    if ( ! milestone && addMilestone) {
+    if (!milestone && addMilestone) {
       await gh.addMilestone();
     }
   } catch (error) {

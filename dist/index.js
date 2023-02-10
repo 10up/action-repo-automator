@@ -13579,13 +13579,15 @@ function getInputs() {
       ? false
       : core.getInput("reviewer") || "team:open-source-practice";
   const addMilestone =
-      core.getInput("add-milestone") === "false" ? false : true;
+    core.getInput("add-milestone") === "false" ? false : true;
 
   // Add debug log of some information.
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
   core.debug(`Fail Label: ${failLabel} (${typeof failLabel})`);
   core.debug(`Pass Label: ${passLabel} (${typeof passLabel})`);
-  core.debug(`Comment Template: ${commentTemplate} (${typeof commentTemplate})`);
+  core.debug(
+    `Comment Template: ${commentTemplate} (${typeof commentTemplate})`
+  );
   core.debug(`PR reviewer: ${prReviewer} (${typeof prReviewer})`);
   core.debug(`Add Milestone: ${addMilestone} (${typeof addMilestone})`);
 
@@ -13665,14 +13667,18 @@ function getChangelog(payload) {
 
 /**
  * Compare two version strings.
- * 
- * @param {string} a 
+ *
+ * @param {string} a
  * @param {string} b
  */
 function versionCompare(a, b) {
-  if (a.startsWith(b + "-")) return -1
-  if (b.startsWith(a + "-")) return  1
-  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "case", caseFirst: "upper" })
+  if (a.startsWith(b + "-")) return -1;
+  if (b.startsWith(a + "-")) return 1;
+  return a.localeCompare(b, undefined, {
+    numeric: true,
+    sensitivity: "case",
+    caseFirst: "upper",
+  });
 }
 
 
@@ -14284,7 +14290,6 @@ const {
 const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
 const issueNumber = github.context.issue.number;
 
-
 async function run() {
   try {
     const gh = new GitHub({
@@ -14299,7 +14304,7 @@ async function run() {
       draft: isDraft,
       assignees,
       user: author,
-      milestone
+      milestone,
     } = pullRequest;
 
     const {
@@ -14386,10 +14391,10 @@ async function run() {
     // 4. Add Milestone
     await gh.removeLabel(labels, failLabel);
     await gh.addLabel(passLabel);
-    if ( requestedReviewers.length === 0 ) {
+    if (requestedReviewers.length === 0) {
       await gh.requestPRReview(prReviewer);
     }
-    if ( ! milestone && addMilestone) {
+    if (!milestone && addMilestone) {
       await gh.addMilestone();
     }
   } catch (error) {
