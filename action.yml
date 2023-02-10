@@ -8,6 +8,10 @@ inputs:
     description: "Wether assign PR to reporter"
     required: false
     default: true
+  add-milestone:
+    description: "Wether add milestone to PR"
+    required: false
+    default: true
   fail-label:
     description: "The label to be added to PR if the pull request doesn't pass the validation"
     required: false
