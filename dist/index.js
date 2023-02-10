@@ -14136,7 +14136,7 @@ class GitHub {
         );
       }
     } catch (error) {
-      core.info(`Failed assigned PR to (${prAuthor.login}) : ${error}`);
+      core.info(`Failed assign issues to (${prAuthor.login}) : ${error}`);
     }
   }
 
