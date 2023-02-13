@@ -8,7 +8,7 @@
 This GitHub Action Helps with the following operations:
 - **Validate PR description:** It validates PR description to make sure it contains description of the change, changelog and credits. Also, you can set custom comment message for PR author to inform them about PR description requirements.
 - **Add Labels:** It helps with adding label to PR when PR validation pass or fail.
-- **Auto-assign Issues:** This feature helps to automatically assign closing issues of PR to the PR author.
+- **Auto-assign Issues:** This feature helps to automatically assign issue with PR assignee when a linked PR is merged.
 - **Auto-assign PR:** It helps with assigning PR to the author.
 - **Auto request review:** It helps with request review from the team or GitHub user given in the configuration.
 
@@ -22,8 +22,8 @@ This GitHub Action Helps with the following operations:
 
 | Key | Default | Description |
 | --- | ------- | ----------- |
-| assign-pr | true | Whether assign PR to reporter |
-| assign-issues | true | Whether assign closing issues of PR to the PR author |
+| assign-pr | true | Whether to assign PR to author |
+| assign-issues | true | Whether to assign issue with PR assignee when linked PR is merged |
 | fail-label | `needs:feedback` | The label to be added to PR if the pull request doesn't pass the validation |
 | pass-label | `needs:code-review` | The label to be added to PR if the pull request pass the validation |
 | comment-template | `{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?` | Comment template for adding comment on PR if it doesn't pass the validation |
