@@ -9,7 +9,7 @@ inputs:
     required: false
     default: true
   add-milestone:
-    description: "Whether add milestone to PR"
+    description: "Whether to automatically add a Milestone to PR"
     required: false
     default: true
   fail-label:
