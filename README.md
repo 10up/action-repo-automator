@@ -23,7 +23,7 @@ This GitHub Action Helps with the following operations:
 | Key | Default | Description |
 | --- | ------- | ----------- |
 | assign-pr | true | Wether assign PR to reporter |
-| add-milestone | true | Wether add milestone to PR |
+| add-milestone | true | Whether to add a milestone to the PR |
 | fail-label | `needs:feedback` | The label to be added to PR if the pull request doesn't pass the validation |
 | pass-label | `needs:code-review` | The label to be added to PR if the pull request pass the validation |
 | comment-template | `{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?` | Comment template for adding comment on PR if it doesn't pass the validation |
