@@ -22,7 +22,7 @@ This GitHub Action Helps with the following operations:
 
 | Key | Default | Description |
 | --- | ------- | ----------- |
-| assign-pr | true | Wether assign PR to reporter |
+| assign-pr | true | Whether assign PR to reporter |
 | add-milestone | true | Whether to add a milestone to the PR |
 | fail-label | `needs:feedback` | The label to be added to PR if the pull request doesn't pass the validation |
 | pass-label | `needs:code-review` | The label to be added to PR if the pull request pass the validation |
