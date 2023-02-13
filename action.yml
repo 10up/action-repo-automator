@@ -21,7 +21,7 @@ inputs:
     required: false
     default: '{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?'
   reviewers:
-    description: 'Reviewers to request review after passing all validation checks'
+    description: 'List of Reviewers to request PR review after passing all validation checks'
     required: false
 runs:
   using: 'node16'
