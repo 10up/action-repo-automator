@@ -18,6 +18,6 @@ jobs:
           reviewers: |
             iamdharmesh
             faisal-alvi
-            wpghactionbot
+            sidsector9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
