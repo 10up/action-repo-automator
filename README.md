@@ -29,7 +29,7 @@ This GitHub Action Helps with the following operations:
 | fail-label | `needs:feedback` | The label to be added to PR if the pull request doesn't pass the validation |
 | pass-label | `needs:code-review` | The label to be added to PR if the pull request pass the validation |
 | comment-template | `{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?` | Comment template for adding comment on PR if it doesn't pass the validation |
-| reviewer | `team:open-source-practice` | Reviewer to request review after passing all validation checks. Add prefix `team:` if you want to request review from the team.
+| reviewers | `team:open-source-practice` | List of Reviewers to request PR review after passing all validation checks. Add prefix `team:` if you want to request review from the team.
 
 ## Example Workflow File
 
@@ -76,6 +76,10 @@ env:
 ## Support Level
 
 **Beta:** This project is quite new and we're not sure what our ongoing support level for this will be. Bug reports, feature requests, questions, and pull requests are welcome. If you like this project please let us know, but be cautious using this in a Production environment!
+
+## Known Caveats/Issues
+
+__Fork-based PRs__ - When creating a pull request from a fork, GitHub limits the permissions of `GITHUB_TOKEN` and other API access tokens. This means that the provided `GITHUB_TOKEN` will not have write access, and the secrets will not be accessible. As a result, some operations (such as adding labels, auto-assigning pull requests, and requesting reviews automatically) will be skipped for pull requests from forked repositories, as these operations require write access to perform successfully.
 
 ## Changelog
 

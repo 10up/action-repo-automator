@@ -13555,10 +13555,10 @@ const core = __nccwpck_require__(2186);
 /**
  * Get PR description.
  *
- * @param {object} payload Pull request payload
+ * @param {object} pullRequest Pull request payload
  * @returns string
  */
-function getInputs() {
+function getInputs(pullRequest) {
   const assignIssues =
     core.getInput("assign-issues") === "false" ? false : true;
   const assignPullRequest =
@@ -13576,10 +13576,25 @@ function getInputs() {
       ? false
       : core.getInput("comment-template") ||
         "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?";
-  const prReviewer =
-    core.getInput("reviewer") === "false"
-      ? false
-      : core.getInput("reviewer") || "team:open-source-practice";
+
+  const authorLogin = pullRequest?.user?.login;
+  const reviewers = core.getMultilineInput("reviewers");
+  let prReviewers = reviewers[0] === "false" ? false : reviewers;
+  if (prReviewers.length === 0) {
+    // Check "reviewer" for backward compatibility.
+    const prReviewer =
+      core.getInput("reviewer") === "false" ? false : core.getInput("reviewer");
+    if (prReviewer === false) {
+      prReviewers = false;
+    } else {
+      prReviewers = prReviewer ? [prReviewer] : ["team:open-source-practice"];
+    }
+  }
+  core.info("Remove PR author from PR reviewers.");
+  if (prReviewers.length) {
+    prReviewers = prReviewers.filter((reviewer) => reviewer !== authorLogin);
+  }
+
   const addMilestone =
     core.getInput("add-milestone") === "false" ? false : true;
 
@@ -13591,7 +13606,7 @@ function getInputs() {
   core.debug(
     `Comment Template: ${commentTemplate} (${typeof commentTemplate})`
   );
-  core.debug(`PR reviewer: ${prReviewer} (${typeof prReviewer})`);
+  core.debug(`PR reviewers: ${prReviewers} (${typeof prReviewers})`);
   core.debug(`Add Milestone: ${addMilestone} (${typeof addMilestone})`);
 
   return {
@@ -13601,7 +13616,7 @@ function getInputs() {
     commentTemplate,
     failLabel,
     passLabel,
-    prReviewer,
+    prReviewers,
   };
 }
 
@@ -14053,18 +14068,32 @@ class GitHub {
   /**
    * Request review on PR.
    *
-   * @param {string} prReviewer
+   * @param {string[]|boolean} prReviewers
    */
-  async requestPRReview(prReviewer) {
+  async requestPRReview(prReviewers) {
     try {
-      if (!prReviewer) {
+      if (!prReviewers) {
         return;
       }
-      const isTeam = prReviewer.startsWith("team:");
-      const reviewer = prReviewer.replace("team:", "");
-      const reviewers = isTeam
-        ? { team_reviewers: [reviewer] }
-        : { reviewers: [reviewer] };
+
+      const reviewers = {};
+      prReviewers.forEach((prReviewer) => {
+        const isTeam = prReviewer.startsWith("team:");
+        const reviewer = prReviewer.replace("team:", "");
+        if (isTeam) {
+          reviewers.team_reviewers = [
+            ...(reviewers.team_reviewers || []),
+            reviewer,
+          ];
+        } else {
+          reviewers.reviewers = [...(reviewers.reviewers || []), reviewer];
+        }
+      });
+
+      // Skip if no reviewers to request review.
+      if (!reviewers.reviewers?.length && !reviewers.team_reviewers?.length) {
+        return;
+      }
 
       // Request Review.
       core.info("Requesting review...");
@@ -14083,28 +14112,42 @@ class GitHub {
   /**
    * remove reviewer from PR.
    *
-   * @param {string} prReviewer
+   * @param {string[]|boolean} prReviewers
    */
-  async removePRReviewer(prReviewer, requestedReviewers) {
+  async removePRReviewer(prReviewers, requestedReviewers) {
     try {
-      if (!prReviewer) {
+      if (!prReviewers) {
         return;
       }
 
-      const isTeam = prReviewer.startsWith("team:");
-      const reviewer = prReviewer.replace("team:", "");
-      const reviewers = isTeam
-        ? { team_reviewers: [reviewer] }
-        : { reviewers: [reviewer] };
+      const reviewers = {};
+      prReviewers.forEach((prReviewer) => {
+        const isTeam = prReviewer.startsWith("team:");
+        const reviewer = prReviewer.replace("team:", "");
 
-      if (
-        !requestedReviewers
-          ?.map((ele) =>
-            isTeam ? ele.slug.toLowerCase() : ele.login.toLowerCase()
-          )
-          ?.includes(reviewer.toLowerCase())
-      ) {
-        // Skip if review not requested from given team.
+        if (
+          !requestedReviewers
+            ?.map((ele) =>
+              isTeam ? ele.slug?.toLowerCase() : ele.login?.toLowerCase()
+            )
+            ?.includes(reviewer.toLowerCase())
+        ) {
+          // Skip if review not requested from given team/users.
+          return;
+        }
+
+        if (isTeam) {
+          reviewers.team_reviewers = [
+            ...(reviewers.team_reviewers || []),
+            reviewer,
+          ];
+        } else {
+          reviewers.reviewers = [...(reviewers.reviewers || []), reviewer];
+        }
+      });
+
+      // Skip if no reviewers to remove.
+      if (!reviewers.reviewers?.length && !reviewers.team_reviewers?.length) {
         return;
       }
 
@@ -14358,8 +14401,8 @@ async function run() {
       failLabel,
       passLabel,
       commentTemplate,
-      prReviewer,
-    } = getInputs();
+      prReviewers,
+    } = getInputs(pullRequest);
     index_core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
     index_core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
 
@@ -14367,7 +14410,7 @@ async function run() {
     if ("Bot" === author.type) {
       // Skip validation against bot user.
       await gh.addLabel(passLabel);
-      await gh.requestPRReview(prReviewer);
+      await gh.requestPRReview(prReviewers);
       return;
     }
 
@@ -14396,7 +14439,7 @@ async function run() {
       // Remove labels and review to handle case of switch PR back draft.
       await gh.removeLabel(labels, failLabel);
       await gh.removeLabel(labels, passLabel);
-      await gh.removePRReviewer(prReviewer, requestedReviewers);
+      await gh.removePRReviewer(prReviewers, requestedReviewers);
 
       index_core.info("Skipping DRAFT PR validation!");
       return;
@@ -14447,7 +14490,7 @@ async function run() {
     await gh.removeLabel(labels, failLabel);
     await gh.addLabel(passLabel);
     if (requestedReviewers.length === 0) {
-      await gh.requestPRReview(prReviewer);
+      await gh.requestPRReview(prReviewers);
     }
   } catch (error) {
     if (error instanceof Error) {

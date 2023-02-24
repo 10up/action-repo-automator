@@ -3,10 +3,10 @@ const core = require("@actions/core");
 /**
  * Get PR description.
  *
- * @param {object} payload Pull request payload
+ * @param {object} pullRequest Pull request payload
  * @returns string
  */
-export function getInputs() {
+export function getInputs(pullRequest) {
   const assignIssues =
     core.getInput("assign-issues") === "false" ? false : true;
   const assignPullRequest =
@@ -24,10 +24,25 @@ export function getInputs() {
       ? false
       : core.getInput("comment-template") ||
         "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?";
-  const prReviewer =
-    core.getInput("reviewer") === "false"
-      ? false
-      : core.getInput("reviewer") || "team:open-source-practice";
+
+  const authorLogin = pullRequest?.user?.login;
+  const reviewers = core.getMultilineInput("reviewers");
+  let prReviewers = reviewers[0] === "false" ? false : reviewers;
+  if (prReviewers.length === 0) {
+    // Check "reviewer" for backward compatibility.
+    const prReviewer =
+      core.getInput("reviewer") === "false" ? false : core.getInput("reviewer");
+    if (prReviewer === false) {
+      prReviewers = false;
+    } else {
+      prReviewers = prReviewer ? [prReviewer] : ["team:open-source-practice"];
+    }
+  }
+  core.info("Remove PR author from PR reviewers.");
+  if (prReviewers.length) {
+    prReviewers = prReviewers.filter((reviewer) => reviewer !== authorLogin);
+  }
+
   const addMilestone =
     core.getInput("add-milestone") === "false" ? false : true;
 
@@ -39,7 +54,7 @@ export function getInputs() {
   core.debug(
     `Comment Template: ${commentTemplate} (${typeof commentTemplate})`
   );
-  core.debug(`PR reviewer: ${prReviewer} (${typeof prReviewer})`);
+  core.debug(`PR reviewers: ${prReviewers} (${typeof prReviewers})`);
   core.debug(`Add Milestone: ${addMilestone} (${typeof addMilestone})`);
 
   return {
@@ -49,7 +64,7 @@ export function getInputs() {
     commentTemplate,
     failLabel,
     passLabel,
-    prReviewer,
+    prReviewers,
   };
 }
 

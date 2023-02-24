@@ -36,8 +36,8 @@ async function run() {
       failLabel,
       passLabel,
       commentTemplate,
-      prReviewer,
-    } = getInputs();
+      prReviewers,
+    } = getInputs(pullRequest);
     core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
     core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
 
@@ -45,7 +45,7 @@ async function run() {
     if ("Bot" === author.type) {
       // Skip validation against bot user.
       await gh.addLabel(passLabel);
-      await gh.requestPRReview(prReviewer);
+      await gh.requestPRReview(prReviewers);
       return;
     }
 
@@ -74,7 +74,7 @@ async function run() {
       // Remove labels and review to handle case of switch PR back draft.
       await gh.removeLabel(labels, failLabel);
       await gh.removeLabel(labels, passLabel);
-      await gh.removePRReviewer(prReviewer, requestedReviewers);
+      await gh.removePRReviewer(prReviewers, requestedReviewers);
 
       core.info("Skipping DRAFT PR validation!");
       return;
@@ -125,7 +125,7 @@ async function run() {
     await gh.removeLabel(labels, failLabel);
     await gh.addLabel(passLabel);
     if (requestedReviewers.length === 0) {
-      await gh.requestPRReview(prReviewer);
+      await gh.requestPRReview(prReviewers);
     }
   } catch (error) {
     if (error instanceof Error) {
