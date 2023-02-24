@@ -216,6 +216,46 @@ export default class GitHub {
   }
 
   /**
+   * Assign Issue connected to PR to given user.
+   *
+   * @param {object} prAuthor
+   * @returns void
+   */
+  async assignIssues(prAuthor) {
+    try {
+      if ("User" !== prAuthor.type) {
+        core.info(
+          `PR author(${prAuthor.login}) is not user. Skipping assign PR.`
+        );
+        return;
+      }
+
+      // Get Issues connected to PR.
+      const issues = await this.getClosingIssues();
+      if (!issues.length) {
+        core.info(`No issues connected to PR.`);
+        return;
+      }
+
+      // Assign Issues to PR author.
+      core.info(`Assigning issues to author(${prAuthor.login})...`);
+      for (const issue of issues) {
+        let addAssigneesResponse = await this.octokit.issues.addAssignees({
+          owner: this.owner,
+          repo: this.repo,
+          issue_number: issue.number,
+          assignees: [prAuthor.login],
+        });
+        core.info(
+          `Issue(#${issue.number}) assigned to (${prAuthor.login}) - ${addAssigneesResponse.status}`
+        );
+      }
+    } catch (error) {
+      core.info(`Failed assign issues to (${prAuthor.login}) : ${error}`);
+    }
+  }
+
+  /**
    * Add Milestone to PR
    */
   async addMilestone() {

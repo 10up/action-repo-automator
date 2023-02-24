@@ -13559,6 +13559,8 @@ const core = __nccwpck_require__(2186);
  * @returns string
  */
 function getInputs() {
+  const assignIssues =
+    core.getInput("assign-issues") === "false" ? false : true;
   const assignPullRequest =
     core.getInput("assign-pr") === "false" ? false : true;
   const failLabel =
@@ -13582,6 +13584,7 @@ function getInputs() {
     core.getInput("add-milestone") === "false" ? false : true;
 
   // Add debug log of some information.
+  core.debug(`Assign Issues: ${assignIssues} (${typeof assignIssues})`);
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
   core.debug(`Fail Label: ${failLabel} (${typeof failLabel})`);
   core.debug(`Pass Label: ${passLabel} (${typeof passLabel})`);
@@ -13592,6 +13595,7 @@ function getInputs() {
   core.debug(`Add Milestone: ${addMilestone} (${typeof addMilestone})`);
 
   return {
+    assignIssues,
     addMilestone,
     assignPullRequest,
     commentTemplate,
@@ -14120,6 +14124,46 @@ class GitHub {
   }
 
   /**
+   * Assign Issue connected to PR to given user.
+   *
+   * @param {object} prAuthor
+   * @returns void
+   */
+  async assignIssues(prAuthor) {
+    try {
+      if ("User" !== prAuthor.type) {
+        core.info(
+          `PR author(${prAuthor.login}) is not user. Skipping assign PR.`
+        );
+        return;
+      }
+
+      // Get Issues connected to PR.
+      const issues = await this.getClosingIssues();
+      if (!issues.length) {
+        core.info(`No issues connected to PR.`);
+        return;
+      }
+
+      // Assign Issues to PR author.
+      core.info(`Assigning issues to author(${prAuthor.login})...`);
+      for (const issue of issues) {
+        let addAssigneesResponse = await this.octokit.issues.addAssignees({
+          owner: this.owner,
+          repo: this.repo,
+          issue_number: issue.number,
+          assignees: [prAuthor.login],
+        });
+        core.info(
+          `Issue(#${issue.number}) assigned to (${prAuthor.login}) - ${addAssigneesResponse.status}`
+        );
+      }
+    } catch (error) {
+      core.info(`Failed assign issues to (${prAuthor.login}) : ${error}`);
+    }
+  }
+
+  /**
    * Add Milestone to PR
    */
   async addMilestone() {
@@ -14308,6 +14352,7 @@ async function run() {
     } = pullRequest;
 
     const {
+      assignIssues,
       addMilestone,
       assignPullRequest,
       failLabel,
@@ -14333,6 +14378,12 @@ async function run() {
     ) {
       index_core.info("PR is unassigned, assigning PR");
       await gh.assignPR(author);
+    }
+
+    // Assign Issues to author
+    if (assignIssues) {
+      index_core.info("Assigning issues to PR author");
+      await gh.assignIssues(author);
     }
 
     // Add milestone to PR

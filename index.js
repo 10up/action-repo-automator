@@ -30,6 +30,7 @@ async function run() {
     } = pullRequest;
 
     const {
+      assignIssues,
       addMilestone,
       assignPullRequest,
       failLabel,
@@ -55,6 +56,12 @@ async function run() {
     ) {
       core.info("PR is unassigned, assigning PR");
       await gh.assignPR(author);
+    }
+
+    // Assign Issues to author
+    if (assignIssues) {
+      core.info("Assigning issues to PR author");
+      await gh.assignIssues(author);
     }
 
     // Add milestone to PR

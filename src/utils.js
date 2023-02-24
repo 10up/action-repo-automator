@@ -7,6 +7,8 @@ const core = require("@actions/core");
  * @returns string
  */
 export function getInputs() {
+  const assignIssues =
+    core.getInput("assign-issues") === "false" ? false : true;
   const assignPullRequest =
     core.getInput("assign-pr") === "false" ? false : true;
   const failLabel =
@@ -30,6 +32,7 @@ export function getInputs() {
     core.getInput("add-milestone") === "false" ? false : true;
 
   // Add debug log of some information.
+  core.debug(`Assign Issues: ${assignIssues} (${typeof assignIssues})`);
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
   core.debug(`Fail Label: ${failLabel} (${typeof failLabel})`);
   core.debug(`Pass Label: ${passLabel} (${typeof passLabel})`);
@@ -40,6 +43,7 @@ export function getInputs() {
   core.debug(`Add Milestone: ${addMilestone} (${typeof addMilestone})`);
 
   return {
+    assignIssues,
     addMilestone,
     assignPullRequest,
     commentTemplate,

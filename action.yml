@@ -5,11 +5,11 @@ branding:
   color: 'blue'
 inputs:
   assign-pr:
-    description: "Whether assign PR to reporter"
+    description: "Whether to assign PR to author"
     required: false
     default: true
-  add-milestone:
-    description: "Whether to automatically add a Milestone to PR"
+  assign-issues:
+    description: "Whether to assign closing issue with PR assignee when linked PR is merged"
     required: false
     default: true
   fail-label:
