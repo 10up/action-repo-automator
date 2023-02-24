@@ -7,6 +7,8 @@ const core = require("@actions/core");
  * @returns string
  */
 export function getInputs(pullRequest) {
+  const assignIssues =
+    core.getInput("assign-issues") === "false" ? false : true;
   const assignPullRequest =
     core.getInput("assign-pr") === "false" ? false : true;
   const failLabel =
@@ -36,12 +38,16 @@ export function getInputs(pullRequest) {
       prReviewers = prReviewer ? [prReviewer] : ["team:open-source-practice"];
     }
   }
-  core.info('Remove PR author from PR reviewers.');
-  if( prReviewers.length){
+  core.info("Remove PR author from PR reviewers.");
+  if (prReviewers.length) {
     prReviewers = prReviewers.filter((reviewer) => reviewer !== authorLogin);
   }
 
+  const addMilestone =
+    core.getInput("add-milestone") === "false" ? false : true;
+
   // Add debug log of some information.
+  core.debug(`Assign Issues: ${assignIssues} (${typeof assignIssues})`);
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
   core.debug(`Fail Label: ${failLabel} (${typeof failLabel})`);
   core.debug(`Pass Label: ${passLabel} (${typeof passLabel})`);
@@ -49,12 +55,15 @@ export function getInputs(pullRequest) {
     `Comment Template: ${commentTemplate} (${typeof commentTemplate})`
   );
   core.debug(`PR reviewers: ${prReviewers} (${typeof prReviewers})`);
+  core.debug(`Add Milestone: ${addMilestone} (${typeof addMilestone})`);
 
   return {
+    assignIssues,
+    addMilestone,
     assignPullRequest,
+    commentTemplate,
     failLabel,
     passLabel,
-    commentTemplate,
     prReviewers,
   };
 }
@@ -121,4 +130,20 @@ export function getChangelog(payload) {
   }
 
   return entries.filter((entry) => entry.length > 0);
+}
+
+/**
+ * Compare two version strings.
+ *
+ * @param {string} a
+ * @param {string} b
+ */
+export function versionCompare(a, b) {
+  if (a.startsWith(b + "-")) return -1;
+  if (b.startsWith(a + "-")) return 1;
+  return a.localeCompare(b, undefined, {
+    numeric: true,
+    sensitivity: "case",
+    caseFirst: "upper",
+  });
 }

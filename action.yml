@@ -5,7 +5,11 @@ branding:
   color: 'blue'
 inputs:
   assign-pr:
-    description: "Wether assign PR to reporter"
+    description: "Whether to assign PR to author"
+    required: false
+    default: true
+  assign-issues:
+    description: "Whether to assign closing issue with PR assignee when linked PR is merged"
     required: false
     default: true
   fail-label:

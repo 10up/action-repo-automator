@@ -13547,7 +13547,8 @@ __nccwpck_require__.r(__webpack_exports__);
 /* harmony export */   "getChangelog": () => (/* binding */ getChangelog),
 /* harmony export */   "getCredits": () => (/* binding */ getCredits),
 /* harmony export */   "getDescription": () => (/* binding */ getDescription),
-/* harmony export */   "getInputs": () => (/* binding */ getInputs)
+/* harmony export */   "getInputs": () => (/* binding */ getInputs),
+/* harmony export */   "versionCompare": () => (/* binding */ versionCompare)
 /* harmony export */ });
 const core = __nccwpck_require__(2186);
 
@@ -13558,6 +13559,8 @@ const core = __nccwpck_require__(2186);
  * @returns string
  */
 function getInputs(pullRequest) {
+  const assignIssues =
+    core.getInput("assign-issues") === "false" ? false : true;
   const assignPullRequest =
     core.getInput("assign-pr") === "false" ? false : true;
   const failLabel =
@@ -13587,12 +13590,16 @@ function getInputs(pullRequest) {
       prReviewers = prReviewer ? [prReviewer] : ["team:open-source-practice"];
     }
   }
-  core.info('Remove PR author from PR reviewers.');
-  if( prReviewers.length){
+  core.info("Remove PR author from PR reviewers.");
+  if (prReviewers.length) {
     prReviewers = prReviewers.filter((reviewer) => reviewer !== authorLogin);
   }
 
+  const addMilestone =
+    core.getInput("add-milestone") === "false" ? false : true;
+
   // Add debug log of some information.
+  core.debug(`Assign Issues: ${assignIssues} (${typeof assignIssues})`);
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
   core.debug(`Fail Label: ${failLabel} (${typeof failLabel})`);
   core.debug(`Pass Label: ${passLabel} (${typeof passLabel})`);
@@ -13600,12 +13607,15 @@ function getInputs(pullRequest) {
     `Comment Template: ${commentTemplate} (${typeof commentTemplate})`
   );
   core.debug(`PR reviewers: ${prReviewers} (${typeof prReviewers})`);
+  core.debug(`Add Milestone: ${addMilestone} (${typeof addMilestone})`);
 
   return {
+    assignIssues,
+    addMilestone,
     assignPullRequest,
+    commentTemplate,
     failLabel,
     passLabel,
-    commentTemplate,
     prReviewers,
   };
 }
@@ -13672,6 +13682,22 @@ function getChangelog(payload) {
   }
 
   return entries.filter((entry) => entry.length > 0);
+}
+
+/**
+ * Compare two version strings.
+ *
+ * @param {string} a
+ * @param {string} b
+ */
+function versionCompare(a, b) {
+  if (a.startsWith(b + "-")) return -1;
+  if (b.startsWith(a + "-")) return 1;
+  return a.localeCompare(b, undefined, {
+    numeric: true,
+    sensitivity: "case",
+    caseFirst: "upper",
+  });
 }
 
 
@@ -13897,6 +13923,8 @@ __nccwpck_require__.r(__webpack_exports__);
 ;// CONCATENATED MODULE: ./src/github.js
 const core = __nccwpck_require__(2186);
 const { Octokit } = __nccwpck_require__(1231);
+
+const { versionCompare } = __nccwpck_require__(1608);
 
 class GitHub {
   constructor({ owner, repo, issueNumber }) {
@@ -14137,6 +14165,201 @@ class GitHub {
       core.info(`Failed to remove reviewer from PR: ${error}`);
     }
   }
+
+  /**
+   * Assign Issue connected to PR to given user.
+   *
+   * @param {object} prAuthor
+   * @returns void
+   */
+  async assignIssues(prAuthor) {
+    try {
+      if ("User" !== prAuthor.type) {
+        core.info(
+          `PR author(${prAuthor.login}) is not user. Skipping assign PR.`
+        );
+        return;
+      }
+
+      // Get Issues connected to PR.
+      const issues = await this.getClosingIssues();
+      if (!issues.length) {
+        core.info(`No issues connected to PR.`);
+        return;
+      }
+
+      // Assign Issues to PR author.
+      core.info(`Assigning issues to author(${prAuthor.login})...`);
+      for (const issue of issues) {
+        let addAssigneesResponse = await this.octokit.issues.addAssignees({
+          owner: this.owner,
+          repo: this.repo,
+          issue_number: issue.number,
+          assignees: [prAuthor.login],
+        });
+        core.info(
+          `Issue(#${issue.number}) assigned to (${prAuthor.login}) - ${addAssigneesResponse.status}`
+        );
+      }
+    } catch (error) {
+      core.info(`Failed assign issues to (${prAuthor.login}) : ${error}`);
+    }
+  }
+
+  /**
+   * Add Milestone to PR
+   */
+  async addMilestone() {
+    try {
+      core.info("Adding milestone to PR...");
+      const closingIssues = await this.getClosingIssues();
+      core.info(
+        `Closing Issues for PR - ${JSON.stringify(closingIssues, null, 2)}`
+      );
+
+      // Get milestone from closing issues.
+      let milestone;
+      const issues = closingIssues
+        ?.filter((issue) => issue.milestone)
+        .sort((a, b) => versionCompare(a.milestone?.title, b.milestone?.title));
+
+      if (issues.length) {
+        milestone = issues[0]?.milestone;
+        // Ignore milestone lower than current plugin version.
+        const version = await this.getPluginVersion();
+        if (version) {
+          milestone = issues.find(
+            (issue) => versionCompare(issue.milestone.title, version) > 0
+          )?.milestone;
+        }
+        core.info(`Milestone found for closing issues: ${milestone?.number}`);
+      } else {
+        core.info(`No milestone found for closing issues`);
+        core.info(`Find next milestone from open milestones in repo.`);
+        // Get next milestone from open milestones in repo.
+        milestone = await this.getNextMilestone();
+      }
+
+      if (milestone?.number) {
+        core.info(`Adding milestone - ${milestone.number}`);
+        const addMilestoneResponse = await this.octokit.issues.update({
+          owner: this.owner,
+          repo: this.repo,
+          issue_number: this.issueNumber,
+          milestone: milestone.number,
+        });
+        core.info(`Milestone Added - ${addMilestoneResponse.status}`);
+      }
+    } catch (error) {
+      core.info(`Failed to Add Milestone to PR: ${error}`);
+    }
+  }
+
+  /**
+   * Get Issues connected to PR.
+   *
+   * @returns array of issues
+   */
+  async getClosingIssues() {
+    const query = `query getClosingIssues($owner: String!, $repo: String!, $prNumber:  Int!) { 
+      repository(owner:$owner, name: $repo) {
+        pullRequest(number: $prNumber) {
+          closingIssuesReferences(first: 100) {
+            edges {
+              node {
+                id
+                number
+                milestone {
+                  id
+                  number
+                  title
+                }
+              }
+            }
+          }
+        }
+      }
+    }`;
+
+    const issuesResponse = await this.octokit.graphql(query, {
+      headers: {},
+      prNumber: this.issueNumber,
+      owner: this.owner,
+      repo: this.repo,
+    });
+
+    const {
+      repository: {
+        pullRequest: {
+          closingIssuesReferences: { edges: closingIssues },
+        },
+      },
+    } = issuesResponse;
+    core.debug(JSON.stringify(closingIssues, null, 2));
+
+    if (closingIssues.length === 0) {
+      return [];
+    }
+
+    return closingIssues.map(({ node }) => node);
+  }
+
+  /**
+   * Get next milestone.
+   * - Get all milestones.
+   * - Sort milestones (Version Compare)
+   * - return first milestone which is greater than current version.
+   *
+   * @returns {object} next milestone
+   */
+  async getNextMilestone() {
+    const version = await this.getPluginVersion();
+    const milestones = [];
+    const responses = this.octokit.paginate.iterator(
+      this.octokit.issues.listMilestones,
+      {
+        owner: this.owner,
+        repo: this.repo,
+        state: "open",
+        sort: "due_on",
+        direction: "desc",
+      }
+    );
+
+    for await (const response of responses) {
+      milestones.push(...response.data);
+    }
+
+    if (milestones.length === 0) {
+      return null;
+    }
+
+    if (version) {
+      return milestones
+        .sort((a, b) => versionCompare(a.title, b.title))
+        .find((milestone) => versionCompare(milestone.title, version) > 0);
+    }
+
+    return milestones.sort((a, b) => versionCompare(a.title, b.title))[0];
+  }
+
+  /**
+   * Get Plugin version from package.json
+   *
+   * @returns {string} current version of plugin
+   */
+  async getPluginVersion() {
+    const {
+      data: { content, encoding },
+    } = await this.octokit.repos.getContent({
+      owner: this.owner,
+      repo: this.repo,
+      path: "package.json",
+    });
+    // Current version of plugin.
+    const { version } = JSON.parse(Buffer.from(content, encoding).toString());
+    return version;
+  }
 }
 
 ;// CONCATENATED MODULE: ./index.js
@@ -14154,7 +14377,6 @@ const {
 const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
 const issueNumber = github.context.issue.number;
 
-
 async function run() {
   try {
     const gh = new GitHub({
@@ -14169,9 +14391,12 @@ async function run() {
       draft: isDraft,
       assignees,
       user: author,
+      milestone,
     } = pullRequest;
 
     const {
+      assignIssues,
+      addMilestone,
       assignPullRequest,
       failLabel,
       passLabel,
@@ -14196,6 +14421,17 @@ async function run() {
     ) {
       index_core.info("PR is unassigned, assigning PR");
       await gh.assignPR(author);
+    }
+
+    // Assign Issues to author
+    if (assignIssues) {
+      index_core.info("Assigning issues to PR author");
+      await gh.assignIssues(author);
+    }
+
+    // Add milestone to PR
+    if (!milestone && addMilestone) {
+      await gh.addMilestone();
     }
 
     // Skip Draft PR
@@ -14253,7 +14489,7 @@ async function run() {
     // 3. Request Review.
     await gh.removeLabel(labels, failLabel);
     await gh.addLabel(passLabel);
-    if ( requestedReviewers.length === 0 ) {
+    if (requestedReviewers.length === 0) {
       await gh.requestPRReview(prReviewers);
     }
   } catch (error) {
