@@ -26,19 +26,25 @@ export function getInputs() {
     core.getInput("reviewer") === "false"
       ? false
       : core.getInput("reviewer") || "team:open-source-practice";
+  const addMilestone =
+    core.getInput("add-milestone") === "false" ? false : true;
 
   // Add debug log of some information.
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
   core.debug(`Fail Label: ${failLabel} (${typeof failLabel})`);
   core.debug(`Pass Label: ${passLabel} (${typeof passLabel})`);
-  core.debug(`Comment Template: ${commentTemplate} (${typeof commentTemplate})`);
+  core.debug(
+    `Comment Template: ${commentTemplate} (${typeof commentTemplate})`
+  );
   core.debug(`PR reviewer: ${prReviewer} (${typeof prReviewer})`);
+  core.debug(`Add Milestone: ${addMilestone} (${typeof addMilestone})`);
 
   return {
+    addMilestone,
     assignPullRequest,
+    commentTemplate,
     failLabel,
     passLabel,
-    commentTemplate,
     prReviewer,
   };
 }
@@ -105,4 +111,20 @@ export function getChangelog(payload) {
   }
 
   return entries.filter((entry) => entry.length > 0);
+}
+
+/**
+ * Compare two version strings.
+ *
+ * @param {string} a
+ * @param {string} b
+ */
+export function versionCompare(a, b) {
+  if (a.startsWith(b + "-")) return -1;
+  if (b.startsWith(a + "-")) return 1;
+  return a.localeCompare(b, undefined, {
+    numeric: true,
+    sensitivity: "case",
+    caseFirst: "upper",
+  });
 }

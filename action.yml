@@ -5,7 +5,11 @@ branding:
   color: 'blue'
 inputs:
   assign-pr:
-    description: "Wether assign PR to reporter"
+    description: "Whether assign PR to reporter"
+    required: false
+    default: true
+  add-milestone:
+    description: "Whether to automatically add a Milestone to PR"
     required: false
     default: true
   fail-label:

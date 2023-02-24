@@ -10,6 +10,7 @@ This GitHub Action Helps with the following operations:
 - **Add Labels:** It helps with adding label to PR when PR validation pass or fail.
 - **Auto-assign PR:** It helps with assigning PR to the author.
 - **Auto request review:** It helps with request review from the team or GitHub user given in the configuration.
+- **Add Milestone:** Automatically adds a Milestone to PRs. If the PR is connected to an issue with a milestone, the same milestone will be added to the PR. Otherwise, the next milestone from the available milestones will be assigned, sorted using version comparison.
 
 ## Configuration
 
@@ -21,7 +22,8 @@ This GitHub Action Helps with the following operations:
 
 | Key | Default | Description |
 | --- | ------- | ----------- |
-| assign-pr | true | Wether assign PR to reporter |
+| assign-pr | true | Whether assign PR to reporter |
+| add-milestone | true | Whether to automatically add a Milestone to a PR |
 | fail-label | `needs:feedback` | The label to be added to PR if the pull request doesn't pass the validation |
 | pass-label | `needs:code-review` | The label to be added to PR if the pull request pass the validation |
 | comment-template | `{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?` | Comment template for adding comment on PR if it doesn't pass the validation |
