@@ -3030,7 +3030,7 @@ var pluginPaginateRest = __nccwpck_require__(9331);
 var pluginRestEndpointMethods = __nccwpck_require__(8528);
 var httpsProxyAgent = __nccwpck_require__(7219);
 
-const VERSION = "5.0.4";
+const VERSION = "5.0.5";
 
 const DEFAULTS = {
   authStrategy: authAction.createActionAuth,
@@ -6751,11 +6751,11 @@ async function json(stream) {
 }
 exports.json = json;
 function req(url, opts = {}) {
-    let req;
+    const href = typeof url === 'string' ? url : url.href;
+    const req = (href.startsWith('https:') ? https : http).request(url, opts);
     const promise = new Promise((resolve, reject) => {
-        const href = typeof url === 'string' ? url : url.href;
-        req = (href.startsWith('https:') ? https : http)
-            .request(url, opts, resolve)
+        req
+            .once('response', resolve)
             .once('error', reject)
             .end();
     });
@@ -6802,63 +6802,83 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Agent = void 0;
 const http = __importStar(__nccwpck_require__(3685));
 __exportStar(__nccwpck_require__(8348), exports);
-function isSecureEndpoint() {
-    const { stack } = new Error();
-    if (typeof stack !== 'string')
-        return false;
-    return stack
-        .split('\n')
-        .some((l) => l.indexOf('(https.js:') !== -1 ||
-        l.indexOf('node:https:') !== -1);
-}
+const INTERNAL = Symbol('AgentBaseInternalState');
 class Agent extends http.Agent {
     constructor(opts) {
         super(opts);
-        this._defaultPort = undefined;
-        this._protocol = undefined;
+        this[INTERNAL] = {};
+    }
+    /**
+     * Determine whether this is an `http` or `https` request.
+     */
+    isSecureEndpoint(options) {
+        if (options) {
+            // First check the `secureEndpoint` property explicitly, since this
+            // means that a parent `Agent` is "passing through" to this instance.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if (typeof options.secureEndpoint === 'boolean') {
+                return options.secureEndpoint;
+            }
+            // If no explicit `secure` endpoint, check if `protocol` property is
+            // set. This will usually be the case since using a full string URL
+            // or `URL` instance should be the most common usage.
+            if (typeof options.protocol === 'string') {
+                return options.protocol === 'https:';
+            }
+        }
+        // Finally, if no `protocol` property was set, then fall back to
+        // checking the stack trace of the current call stack, and try to
+        // detect the "https" module.
+        const { stack } = new Error();
+        if (typeof stack !== 'string')
+            return false;
+        return stack
+            .split('\n')
+            .some((l) => l.indexOf('(https.js:') !== -1 ||
+            l.indexOf('node:https:') !== -1);
     }
     createSocket(req, options, cb) {
-        const o = {
+        const connectOpts = {
             ...options,
-            secureEndpoint: options.secureEndpoint ?? isSecureEndpoint(),
+            secureEndpoint: this.isSecureEndpoint(options),
         };
         Promise.resolve()
-            .then(() => this.connect(req, o))
+            .then(() => this.connect(req, connectOpts))
             .then((socket) => {
             if (socket instanceof http.Agent) {
                 // @ts-expect-error `addRequest()` isn't defined in `@types/node`
-                return socket.addRequest(req, o);
+                return socket.addRequest(req, connectOpts);
             }
-            this._currentSocket = socket;
+            this[INTERNAL].currentSocket = socket;
             // @ts-expect-error `createSocket()` isn't defined in `@types/node`
             super.createSocket(req, options, cb);
         }, cb);
     }
     createConnection() {
-        if (!this._currentSocket) {
-            throw new Error('no socket');
+        const socket = this[INTERNAL].currentSocket;
+        this[INTERNAL].currentSocket = undefined;
+        if (!socket) {
+            throw new Error('No socket was returned in the `connect()` function');
         }
-        return this._currentSocket;
+        return socket;
     }
     get defaultPort() {
-        if (typeof this._defaultPort === 'number') {
-            return this._defaultPort;
-        }
-        const port = this.protocol === 'https:' ? 443 : 80;
-        return port;
+        return (this[INTERNAL].defaultPort ??
+            (this.protocol === 'https:' ? 443 : 80));
     }
     set defaultPort(v) {
-        this._defaultPort = v;
+        if (this[INTERNAL]) {
+            this[INTERNAL].defaultPort = v;
+        }
     }
     get protocol() {
-        if (typeof this._protocol === 'string') {
-            return this._protocol;
-        }
-        const p = isSecureEndpoint() ? 'https:' : 'http:';
-        return p;
+        return (this[INTERNAL].protocol ??
+            (this.isSecureEndpoint() ? 'https:' : 'http:'));
     }
     set protocol(v) {
-        this._protocol = v;
+        if (this[INTERNAL]) {
+            this[INTERNAL].protocol = v;
+        }
     }
 }
 exports.Agent = Agent;
@@ -7984,9 +8004,6 @@ const debug = (0, debug_1.default)('https-proxy-agent');
  * the connection to the proxy server has been established.
  */
 class HttpsProxyAgent extends agent_base_1.Agent {
-    get secureProxy() {
-        return isHTTPS(this.proxy.protocol);
-    }
     constructor(proxy, opts) {
         super(opts);
         this.options = { path: undefined };
@@ -7997,7 +8014,7 @@ class HttpsProxyAgent extends agent_base_1.Agent {
         const host = (this.proxy.hostname || this.proxy.host).replace(/^\[|\]$/g, '');
         const port = this.proxy.port
             ? parseInt(this.proxy.port, 10)
-            : this.secureProxy
+            : this.proxy.protocol === 'https:'
                 ? 443
                 : 80;
         this.connectOpts = {
@@ -8013,13 +8030,13 @@ class HttpsProxyAgent extends agent_base_1.Agent {
      * new HTTP request.
      */
     async connect(req, opts) {
-        const { proxy, secureProxy } = this;
+        const { proxy } = this;
         if (!opts.host) {
             throw new TypeError('No "host" provided');
         }
         // Create a socket connection to the proxy server.
         let socket;
-        if (secureProxy) {
+        if (proxy.protocol === 'https:') {
             debug('Creating `tls.Socket`: %o', this.connectOpts);
             socket = tls.connect(this.connectOpts);
         }
@@ -8027,7 +8044,9 @@ class HttpsProxyAgent extends agent_base_1.Agent {
             debug('Creating `net.Socket`: %o', this.connectOpts);
             socket = net.connect(this.connectOpts);
         }
-        const headers = { ...this.proxyHeaders };
+        const headers = typeof this.proxyHeaders === 'function'
+            ? this.proxyHeaders()
+            : { ...this.proxyHeaders };
         const host = net.isIPv6(opts.host) ? `[${opts.host}]` : opts.host;
         let payload = `CONNECT ${host}:${opts.port} HTTP/1.1\r\n`;
         // Inject the `Proxy-Authorization` header if necessary.
@@ -8095,9 +8114,6 @@ exports.HttpsProxyAgent = HttpsProxyAgent;
 function resume(socket) {
     socket.resume();
 }
-function isHTTPS(protocol) {
-    return typeof protocol === 'string' ? /^https:?$/i.test(protocol) : false;
-}
 function omit(obj, ...keys) {
     const ret = {};
     let key;
@@ -8142,14 +8158,12 @@ function parseProxyResponse(socket) {
         function cleanup() {
             socket.removeListener('end', onend);
             socket.removeListener('error', onerror);
-            socket.removeListener('close', onclose);
             socket.removeListener('readable', read);
         }
-        function onclose(err) {
-            debug('onclose had error %o', err);
-        }
         function onend() {
+            cleanup();
             debug('onend');
+            reject(new Error('Proxy connection ended before receiving CONNECT response'));
         }
         function onerror(err) {
             cleanup();
@@ -8170,7 +8184,8 @@ function parseProxyResponse(socket) {
             const headerParts = buffered.toString('ascii').split('\r\n');
             const firstLine = headerParts.shift();
             if (!firstLine) {
-                throw new Error('No header received');
+                socket.destroy();
+                return reject(new Error('No header received from proxy CONNECT response'));
             }
             const firstLineParts = firstLine.split(' ');
             const statusCode = +firstLineParts[1];
@@ -8181,7 +8196,8 @@ function parseProxyResponse(socket) {
                     continue;
                 const firstColon = header.indexOf(':');
                 if (firstColon === -1) {
-                    throw new Error(`Invalid header: "${header}"`);
+                    socket.destroy();
+                    return reject(new Error(`Invalid header from proxy CONNECT response: "${header}"`));
                 }
                 const key = header.slice(0, firstColon).toLowerCase();
                 const value = header.slice(firstColon + 1).trimStart();
@@ -8196,7 +8212,7 @@ function parseProxyResponse(socket) {
                     headers[key] = value;
                 }
             }
-            debug('got proxy server response: %o', firstLine);
+            debug('got proxy server response: %o %o', firstLine, headers);
             cleanup();
             resolve({
                 connect: {
@@ -8208,7 +8224,6 @@ function parseProxyResponse(socket) {
             });
         }
         socket.on('error', onerror);
-        socket.on('close', onclose);
         socket.on('end', onend);
         read();
     });
