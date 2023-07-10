@@ -2,6 +2,8 @@ const core = require("@actions/core");
 const github = require("@actions/github");
 
 import GitHub from "./src/github";
+import PRConflict from "./src/pr-conflict";
+
 const {
   getChangelog,
   getCredits,
@@ -14,10 +16,16 @@ const issueNumber = github.context.issue.number;
 
 async function run() {
   try {
+    if ("push" === github.context.eventName) {
+      const conflictFinder = new PRConflict(owner, repo);
+      await conflictFinder.run();
+      core.info("Skipping PR validation on push event");
+      return;
+    }
+
     const gh = new GitHub({
       owner,
       repo,
-      issueNumber,
     });
     const pullRequest = github.context.payload?.pull_request || {};
     const {
@@ -44,8 +52,8 @@ async function run() {
     // Handle Bot User
     if ("Bot" === author.type) {
       // Skip validation against bot user.
-      await gh.addLabel(passLabel);
-      await gh.requestPRReview(prReviewers);
+      await gh.addLabel(issueNumber, passLabel);
+      await gh.requestPRReview(issueNumber, prReviewers);
       return;
     }
 
@@ -55,26 +63,26 @@ async function run() {
       assignPullRequest
     ) {
       core.info("PR is unassigned, assigning PR");
-      await gh.assignPR(author);
+      await gh.assignPR(issueNumber, author);
     }
 
     // Assign Issues to author
     if (assignIssues) {
       core.info("Assigning issues to PR author");
-      await gh.assignIssues(author);
+      await gh.assignIssues(issueNumber, author);
     }
 
     // Add milestone to PR
     if (!milestone && addMilestone) {
-      await gh.addMilestone();
+      await gh.addMilestone(issueNumber);
     }
 
     // Skip Draft PR
     if (isDraft) {
       // Remove labels and review to handle case of switch PR back draft.
-      await gh.removeLabel(labels, failLabel);
-      await gh.removeLabel(labels, passLabel);
-      await gh.removePRReviewer(prReviewers, requestedReviewers);
+      await gh.removeLabel(issueNumber, labels, failLabel);
+      await gh.removeLabel(issueNumber, labels, passLabel);
+      await gh.removePRReviewer(issueNumber, prReviewers, requestedReviewers);
 
       core.info("Skipping DRAFT PR validation!");
       return;
@@ -92,17 +100,17 @@ async function run() {
 
     if (!changelog.length || !props.length || !description.length) {
       // Remove Pass Label if already there.
-      await gh.removeLabel(labels, passLabel);
+      await gh.removeLabel(issueNumber, labels, passLabel);
 
       // Add Fail Label.
-      await gh.addLabel(failLabel);
+      await gh.addLabel(issueNumber, failLabel);
 
       // Add Comment to for author to fill out the PR template.
       const commentBody = commentTemplate.replace(
         "{author}",
         `@${author.login}`
       );
-      await gh.addComment(commentBody);
+      await gh.addComment(issueNumber, commentBody);
 
       if (!changelog.length) {
         core.setFailed("Please fill out the changelog information");
@@ -122,10 +130,10 @@ async function run() {
     // 1. Remove fail label
     // 2. Add Pass label
     // 3. Request Review.
-    await gh.removeLabel(labels, failLabel);
-    await gh.addLabel(passLabel);
+    await gh.removeLabel(issueNumber, labels, failLabel);
+    await gh.addLabel(issueNumber, passLabel);
     if (requestedReviewers.length === 0) {
-      await gh.requestPRReview(prReviewers);
+      await gh.requestPRReview(issueNumber, prReviewers);
     }
   } catch (error) {
     if (error instanceof Error) {

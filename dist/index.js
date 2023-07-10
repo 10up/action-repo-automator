@@ -14790,7 +14790,8 @@ __nccwpck_require__.r(__webpack_exports__);
 /* harmony export */   "getCredits": () => (/* binding */ getCredits),
 /* harmony export */   "getDescription": () => (/* binding */ getDescription),
 /* harmony export */   "getInputs": () => (/* binding */ getInputs),
-/* harmony export */   "versionCompare": () => (/* binding */ versionCompare)
+/* harmony export */   "versionCompare": () => (/* binding */ versionCompare),
+/* harmony export */   "wait": () => (/* binding */ wait)
 /* harmony export */ });
 const core = __nccwpck_require__(2186);
 
@@ -14942,6 +14943,9 @@ function versionCompare(a, b) {
   });
 }
 
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /***/ }),
 
@@ -15169,10 +15173,9 @@ const { Octokit } = __nccwpck_require__(1231);
 const { versionCompare } = __nccwpck_require__(1608);
 
 class GitHub {
-  constructor({ owner, repo, issueNumber }) {
+  constructor({ owner, repo }) {
     this.owner = owner;
     this.repo = repo;
-    this.issueNumber = issueNumber;
     this.octokit = new Octokit();
   }
 
@@ -15182,7 +15185,7 @@ class GitHub {
    * @param {object} prAuthor
    * @returns void
    */
-  async assignPR(prAuthor) {
+  async assignPR(prNumber, prAuthor) {
     try {
       if ("User" !== prAuthor.type) {
         core.info(
@@ -15195,7 +15198,7 @@ class GitHub {
       let addAssigneesResponse = await this.octokit.issues.addAssignees({
         owner: this.owner,
         repo: this.repo,
-        issue_number: this.issueNumber,
+        issue_number: prNumber,
         assignees: [prAuthor.login],
       });
       core.info(
@@ -15211,7 +15214,7 @@ class GitHub {
    *
    * @param {string} name
    */
-  async addLabel(name) {
+  async addLabel(prNumber, name) {
     try {
       if (!name) {
         return;
@@ -15220,11 +15223,12 @@ class GitHub {
       let addLabelResponse = await this.octokit.issues.addLabels({
         owner: this.owner,
         repo: this.repo,
-        issue_number: this.issueNumber,
+        issue_number: prNumber,
         labels: [name],
       });
       core.info(`Added label (${name}) to PR - ${addLabelResponse.status}`);
     } catch (error) {
+      core.error(error);
       core.info(`Failed to add label (${name}) to PR: ${error}`);
     }
   }
@@ -15236,7 +15240,7 @@ class GitHub {
    * @param {string} name
    * @returns void
    */
-  async removeLabel(labels, name) {
+  async removeLabel(prNumber, labels, name) {
     try {
       if (
         !name ||
@@ -15251,7 +15255,7 @@ class GitHub {
       let removeLabelResponse = await this.octokit.issues.removeLabel({
         owner: this.owner,
         repo: this.repo,
-        issue_number: this.issueNumber,
+        issue_number: prNumber,
         name: name,
       });
       core.info(`Removed label - ${removeLabelResponse.status}`);
@@ -15266,7 +15270,7 @@ class GitHub {
    * @param {string} message
    * @returns void
    */
-  async addComment(message) {
+  async addComment(prNumber, message) {
     try {
       if (!message) {
         return;
@@ -15275,7 +15279,7 @@ class GitHub {
       const { data: comments } = await this.octokit.issues.listComments({
         owner: this.owner,
         repo: this.repo,
-        issue_number: this.issueNumber,
+        issue_number: prNumber,
       });
       const isExist = comments.some(({ user, body }) => {
         // Check comments of Bot user only.
@@ -15298,7 +15302,7 @@ class GitHub {
       let addCommentResponse = await this.octokit.issues.createComment({
         owner: this.owner,
         repo: this.repo,
-        issue_number: this.issueNumber,
+        issue_number: prNumber,
         body: message,
       });
       core.info(`Comment Added - ${addCommentResponse.status}`);
@@ -15308,11 +15312,36 @@ class GitHub {
   }
 
   /**
+   * Remove comment from PR/Issue.
+   *
+   * @param {string} commentId Comment ID to remove.
+   * @returns
+   */
+  async removeComment(commentId) {
+    try {
+      if (!commentId) {
+        return;
+      }
+
+      core.info("Removing comment...");
+      let removeCommentResponse = await this.octokit.issues.deleteComment({
+        owner: this.owner,
+        repo: this.repo,
+        comment_id: commentId,
+      });
+      core.info(`Comment Removed - ${removeCommentResponse.status}`);
+    } catch (error) {
+      core.error(error);
+      core.info(`Failed to remove comment: ${error}`);
+    }
+  }
+
+  /**
    * Request review on PR.
    *
    * @param {string[]|boolean} prReviewers
    */
-  async requestPRReview(prReviewers) {
+  async requestPRReview(prNumber, prReviewers) {
     try {
       if (!prReviewers) {
         return;
@@ -15342,7 +15371,7 @@ class GitHub {
       let requestReviewResponse = await this.octokit.pulls.requestReviewers({
         owner: this.owner,
         repo: this.repo,
-        pull_number: this.issueNumber,
+        pull_number: prNumber,
         ...reviewers,
       });
       core.info(`Review Requested - ${requestReviewResponse.status}`);
@@ -15356,7 +15385,7 @@ class GitHub {
    *
    * @param {string[]|boolean} prReviewers
    */
-  async removePRReviewer(prReviewers, requestedReviewers) {
+  async removePRReviewer(prNumber, prReviewers, requestedReviewers) {
     try {
       if (!prReviewers) {
         return;
@@ -15399,7 +15428,7 @@ class GitHub {
         await this.octokit.pulls.removeRequestedReviewers({
           owner: this.owner,
           repo: this.repo,
-          pull_number: this.issueNumber,
+          pull_number: prNumber,
           ...reviewers,
         });
       core.info(`Reviewer Removed - ${removeReviewerResponse.status}`);
@@ -15414,7 +15443,7 @@ class GitHub {
    * @param {object} prAuthor
    * @returns void
    */
-  async assignIssues(prAuthor) {
+  async assignIssues(prNumber, prAuthor) {
     try {
       if ("User" !== prAuthor.type) {
         core.info(
@@ -15424,7 +15453,7 @@ class GitHub {
       }
 
       // Get Issues connected to PR.
-      const issues = await this.getClosingIssues();
+      const issues = await this.getClosingIssues(prNumber);
       if (!issues.length) {
         core.info(`No issues connected to PR.`);
         return;
@@ -15451,10 +15480,10 @@ class GitHub {
   /**
    * Add Milestone to PR
    */
-  async addMilestone() {
+  async addMilestone(prNumber) {
     try {
       core.info("Adding milestone to PR...");
-      const closingIssues = await this.getClosingIssues();
+      const closingIssues = await this.getClosingIssues(prNumber);
       core.info(
         `Closing Issues for PR - ${JSON.stringify(closingIssues, null, 2)}`
       );
@@ -15487,7 +15516,7 @@ class GitHub {
         const addMilestoneResponse = await this.octokit.issues.update({
           owner: this.owner,
           repo: this.repo,
-          issue_number: this.issueNumber,
+          issue_number: prNumber,
           milestone: milestone.number,
         });
         core.info(`Milestone Added - ${addMilestoneResponse.status}`);
@@ -15502,7 +15531,7 @@ class GitHub {
    *
    * @returns array of issues
    */
-  async getClosingIssues() {
+  async getClosingIssues(prNumber) {
     const query = `query getClosingIssues($owner: String!, $repo: String!, $prNumber:  Int!) { 
       repository(owner:$owner, name: $repo) {
         pullRequest(number: $prNumber) {
@@ -15525,7 +15554,7 @@ class GitHub {
 
     const issuesResponse = await this.octokit.graphql(query, {
       headers: {},
-      prNumber: this.issueNumber,
+      prNumber,
       owner: this.owner,
       repo: this.repo,
     });
@@ -15602,11 +15631,194 @@ class GitHub {
     const { version } = JSON.parse(Buffer.from(content, encoding).toString());
     return version;
   }
+
+  async getAllPullRequests() {
+    let cursor = null;
+    let hasNextPage = true;
+    const pullRequests = [];
+
+    while (hasNextPage) {
+      core.info(`Getting pull requests page ${cursor}`);
+      core.info(`Has NextPage: ${hasNextPage}`);
+
+      const response = await this.getPullRequestPages(cursor);
+
+      const {
+        errors,
+        repository: {
+          pullRequests: { nodes: prs, pageInfo },
+        },
+      } = response;
+
+      if (errors) {
+        core.info(errors);
+        core.info("Unable to get pull requests");
+        // @TODO: Handle errors
+        return;
+      }
+
+      if (prs.length > 0) {
+        core.info(`Found ${prs.length} pull requests`);
+        pullRequests.push(...prs);
+      }
+      cursor = pageInfo.endCursor;
+      hasNextPage = pageInfo.hasNextPage;
+    }
+
+    return pullRequests;
+  }
+
+  async getPullRequestPages(cursor = null) {
+    const query = `query ($owner: String!, $repo: String!, $after: String) {
+        repository(owner: $owner, name: $repo) {
+          pullRequests(first: 100, states: OPEN, after: $after) {
+            nodes {
+              id
+              number
+              mergeable
+              locked
+              author {
+                login
+              }
+              comments(last: 100) {
+                nodes {
+                  id
+                  body
+                  databaseId
+                }
+              }
+              labels(last: 100) {
+                nodes {
+                  id
+                  name
+                }
+              }
+            }
+            pageInfo {
+              endCursor
+              hasNextPage
+            }
+          }
+        }
+      }`;
+
+    return this.octokit.graphql(query, {
+      owner: this.owner,
+      repo: this.repo,
+      after: cursor,
+    });
+  }
+}
+
+;// CONCATENATED MODULE: ./src/pr-conflict.js
+const pr_conflict_core = __nccwpck_require__(2186);
+
+
+const { wait } = __nccwpck_require__(1608);
+
+class PRConflict {
+  constructor(owner, repo) {
+    this.repo = repo;
+    this.owner = owner;
+    this.gh = new GitHub({
+      owner: this.owner,
+      repo: this.repo,
+    });
+  }
+
+  async run() {
+    let tries = 0;
+    const maxTries = 5;
+    const waitTime = 15000;
+
+    let pullRequests = await this.gh.getAllPullRequests();
+    let unknownMergeablePRs = pullRequests.filter(
+      (pr) => pr.mergeable === "UNKNOWN"
+    );
+
+    while (tries < maxTries && unknownMergeablePRs.length > 0) {
+      tries++;
+      pr_conflict_core.info(`Try: ${tries}`);
+      pr_conflict_core.info(`${unknownMergeablePRs.length} PRs has unknown mergeable state`);
+      await wait(waitTime);
+      pullRequests = await this.gh.getAllPullRequests();
+      unknownMergeablePRs = pullRequests.filter(
+        (pr) => pr.mergeable === "UNKNOWN"
+      );      
+    }
+
+    if (unknownMergeablePRs.length > 0) {
+      // Stop processing, @todo: handle this case
+      pr_conflict_core.info("Unable to determine mergeable state for PRs");
+      return;
+    }
+
+    for (const pullRequest of pullRequests) {
+      await this.processPullRequest(pullRequest);
+    }
+  }
+
+  async processPullRequest(pullRequest) {
+    const { number, mergeable, locked, author, comments, labels } = pullRequest;
+
+    const conflictLabel = "needs: refresh";
+    const conflictComment =
+      "{author} This PR has conflicts that must be resolved before it can be merged.";
+    const commentBody = conflictComment.replace("{author}", `@${author.login}`);
+
+    if (
+      locked ||
+      mergeable === "UNKNOWN" ||
+      author.login === "dependabot[bot]"
+    ) {
+      // Skip locked PRs, PRs with unknown mergeable state, and dependabot PRs
+      return;
+    }
+    console.log(comments);
+    console.log(labels);
+    switch (mergeable) {
+      case "CONFLICTING": {
+        // Check if PR has conflict label. If not, add conflict label
+        if (!labels?.nodes?.some((label) => label.name === conflictLabel)) {
+          await this.gh.addLabel(number, conflictLabel);
+        }
+
+        // Check if PR has conflict comment. If not, add conflict comment
+        if (!comments?.nodes?.some((comment) => comment.body === commentBody)) {
+          await this.gh.addComment(number, commentBody);
+        }
+        break;
+      }
+
+      case "MERGEABLE": {
+        // Check if PR has conflict label. If yes, remove conflict label
+        if (labels?.nodes?.some((label) => label.name === conflictLabel)) {
+          await this.gh.removeLabel(number, labels.nodes, conflictLabel);
+        }
+
+        // Check if PR has conflict comment. If yes, remove conflict comment
+        if (comments?.nodes?.some((comment) => comment.body === commentBody)) {
+          const commentIds = comments?.nodes
+            ?.filter((comment) => comment.body === commentBody)
+            .map((comment) => comment.databaseId);
+          if (commentIds.length > 0) {
+            await this.gh.removeComment(commentIds[0]);
+          }
+        }
+        break;
+      }
+
+      default:
+        break;
+    }
+  }
 }
 
 ;// CONCATENATED MODULE: ./index.js
 const index_core = __nccwpck_require__(2186);
 const github = __nccwpck_require__(5438);
+
+
 
 
 const {
@@ -15621,10 +15833,16 @@ const issueNumber = github.context.issue.number;
 
 async function run() {
   try {
+    if ("push" === github.context.eventName) {
+      const conflictFinder = new PRConflict(owner, repo);
+      await conflictFinder.run();
+      index_core.info("Skipping PR validation on push event");
+      return;
+    }
+
     const gh = new GitHub({
       owner,
       repo,
-      issueNumber,
     });
     const pullRequest = github.context.payload?.pull_request || {};
     const {
@@ -15651,8 +15869,8 @@ async function run() {
     // Handle Bot User
     if ("Bot" === author.type) {
       // Skip validation against bot user.
-      await gh.addLabel(passLabel);
-      await gh.requestPRReview(prReviewers);
+      await gh.addLabel(issueNumber, passLabel);
+      await gh.requestPRReview(issueNumber, prReviewers);
       return;
     }
 
@@ -15662,26 +15880,26 @@ async function run() {
       assignPullRequest
     ) {
       index_core.info("PR is unassigned, assigning PR");
-      await gh.assignPR(author);
+      await gh.assignPR(issueNumber, author);
     }
 
     // Assign Issues to author
     if (assignIssues) {
       index_core.info("Assigning issues to PR author");
-      await gh.assignIssues(author);
+      await gh.assignIssues(issueNumber, author);
     }
 
     // Add milestone to PR
     if (!milestone && addMilestone) {
-      await gh.addMilestone();
+      await gh.addMilestone(issueNumber);
     }
 
     // Skip Draft PR
     if (isDraft) {
       // Remove labels and review to handle case of switch PR back draft.
-      await gh.removeLabel(labels, failLabel);
-      await gh.removeLabel(labels, passLabel);
-      await gh.removePRReviewer(prReviewers, requestedReviewers);
+      await gh.removeLabel(issueNumber, labels, failLabel);
+      await gh.removeLabel(issueNumber, labels, passLabel);
+      await gh.removePRReviewer(issueNumber, prReviewers, requestedReviewers);
 
       index_core.info("Skipping DRAFT PR validation!");
       return;
@@ -15699,17 +15917,17 @@ async function run() {
 
     if (!changelog.length || !props.length || !description.length) {
       // Remove Pass Label if already there.
-      await gh.removeLabel(labels, passLabel);
+      await gh.removeLabel(issueNumber, labels, passLabel);
 
       // Add Fail Label.
-      await gh.addLabel(failLabel);
+      await gh.addLabel(issueNumber, failLabel);
 
       // Add Comment to for author to fill out the PR template.
       const commentBody = commentTemplate.replace(
         "{author}",
         `@${author.login}`
       );
-      await gh.addComment(commentBody);
+      await gh.addComment(issueNumber, commentBody);
 
       if (!changelog.length) {
         index_core.setFailed("Please fill out the changelog information");
@@ -15729,10 +15947,10 @@ async function run() {
     // 1. Remove fail label
     // 2. Add Pass label
     // 3. Request Review.
-    await gh.removeLabel(labels, failLabel);
-    await gh.addLabel(passLabel);
+    await gh.removeLabel(issueNumber, labels, failLabel);
+    await gh.addLabel(issueNumber, passLabel);
     if (requestedReviewers.length === 0) {
-      await gh.requestPRReview(prReviewers);
+      await gh.requestPRReview(issueNumber, prReviewers);
     }
   } catch (error) {
     if (error instanceof Error) {
