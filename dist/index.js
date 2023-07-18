@@ -14818,6 +14818,12 @@ function getInputs(pullRequest) {
       ? false
       : core.getInput("comment-template") ||
         "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?";
+  const validateChangelog = 
+    core.getInput("validate-changelog") === "false" ? false : true;
+  const validateCredits = 
+    core.getInput("validate-credits") === "false" ? false : true;
+  const validateDescription = 
+    core.getInput("validate-description") === "false" ? false : true;
 
   const authorLogin = pullRequest?.user?.login;
   const reviewers = core.getMultilineInput("reviewers");
@@ -14859,6 +14865,9 @@ function getInputs(pullRequest) {
     failLabel,
     passLabel,
     prReviewers,
+    validateChangelog,
+    validateCredits,
+    validateDescription,
   };
 }
 
@@ -15644,6 +15653,9 @@ async function run() {
       passLabel,
       commentTemplate,
       prReviewers,
+      validateChangelog,
+      validateCredits,
+      validateDescription,
     } = getInputs(pullRequest);
     index_core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
     index_core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
@@ -15711,13 +15723,13 @@ async function run() {
       );
       await gh.addComment(commentBody);
 
-      if (!changelog.length) {
+      if (!changelog.length && validateChangelog) {
         index_core.setFailed("Please fill out the changelog information");
       }
-      if (!props.length) {
+      if (!props.length && validateCredits) {
         index_core.setFailed("Please fill out the credits information");
       }
-      if (!description.length) {
+      if (!description.length && validateDescription) {
         index_core.setFailed(
           "Please add some description about the changes made in PR"
         );
