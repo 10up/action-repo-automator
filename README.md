@@ -30,6 +30,9 @@ This GitHub Action Helps with the following operations:
 | pass-label | `needs:code-review` | The label to be added to PR if the pull request pass the validation |
 | comment-template | `{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?` | Comment template for adding comment on PR if it doesn't pass the validation |
 | reviewers | `team:open-source-practice` | List of Reviewers to request PR review after passing all validation checks. Add prefix `team:` if you want to request review from the team.
+| validate-changelog | true | If you want to validade the changelog.
+| validate-credits | true | If you want to validade the credits.
+| validate-description | true | If you want to validade the changes description.
 
 ## Example Workflow File
 

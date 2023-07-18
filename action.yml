@@ -27,6 +27,15 @@ inputs:
   reviewers:
     description: 'List of Reviewers to request PR review after passing all validation checks'
     required: false
+  validate-changelog:
+    description: If you want to validade changes in the changelog file
+    required: false
+  validate-credits:
+    description: If you want to validade the credits
+    required: false
+  validate-description:
+    description: If you want to validade the changes description
+    required: false
 runs:
   using: 'node16'
   main: 'dist/index.js'

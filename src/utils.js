@@ -24,6 +24,12 @@ export function getInputs(pullRequest) {
       ? false
       : core.getInput("comment-template") ||
         "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?";
+  const validateChangelog = 
+    core.getInput("validate-changelog") === "false" ? false : true;
+  const validateCredits = 
+    core.getInput("validate-credits") === "false" ? false : true;
+  const validateDescription = 
+    core.getInput("validate-description") === "false" ? false : true;
 
   const authorLogin = pullRequest?.user?.login;
   const reviewers = core.getMultilineInput("reviewers");
@@ -65,6 +71,9 @@ export function getInputs(pullRequest) {
     failLabel,
     passLabel,
     prReviewers,
+    validateChangelog,
+    validateCredits,
+    validateDescription,
   };
 }
 

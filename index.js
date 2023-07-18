@@ -37,6 +37,9 @@ async function run() {
       passLabel,
       commentTemplate,
       prReviewers,
+      validateChangelog,
+      validateCredits,
+      validateDescription,
     } = getInputs(pullRequest);
     core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
     core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
@@ -104,13 +107,13 @@ async function run() {
       );
       await gh.addComment(commentBody);
 
-      if (!changelog.length) {
+      if (!changelog.length && validateChangelog) {
         core.setFailed("Please fill out the changelog information");
       }
-      if (!props.length) {
+      if (!props.length && validateCredits) {
         core.setFailed("Please fill out the credits information");
       }
-      if (!description.length) {
+      if (!description.length && validateDescription) {
         core.setFailed(
           "Please add some description about the changes made in PR"
         );
