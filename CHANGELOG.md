@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file, per [the Keep a Changelog standard](http://keepachangelog.com/), and will adhere to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - TBD
+### Added
+- Added possibility to disable changelog, description and credits validation (props [@senhordaluz](https://github.com/senhordaluz) via [#76](https://github.com/10up/action-pr-automator/issues/76))
 
 ## [1.0.1] - 2022-10-14
 ### Changed
