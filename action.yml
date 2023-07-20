@@ -19,7 +19,15 @@ inputs:
   pass-label:
     description: 'The label to be added to PR if the pull request pass the validation'
     required: false
-    default: 'needs:code-review'
+    default: 'needs:code-review'  
+  conflict-label:
+    description: 'The label to be added to PR if the pull request has conflicts'
+    required: false
+    default: 'needs:refresh'
+  conflict-comment:
+    description: 'Comment template for adding comment on PR if it has conflicts'
+    required: false
+    default: '{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?'
   comment-template:
     description: "Comment template for adding comment on PR if it doesn't pass the validation"
     required: false
@@ -27,6 +35,14 @@ inputs:
   reviewers:
     description: 'List of Reviewers to request PR review after passing all validation checks'
     required: false
+  max-retries:
+    description: 'Maximum number of retries to check PR mergeable status'
+    required: false
+    default: 5
+  wait-ms: 
+    description: 'Time to wait in milliseconds between retries to check PR mergeable status'
+    required: false
+    default: 15000
 runs:
   using: 'node16'
   main: 'dist/index.js'

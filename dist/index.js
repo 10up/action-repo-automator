@@ -14801,7 +14801,7 @@ const core = __nccwpck_require__(2186);
  * @param {object} pullRequest Pull request payload
  * @returns string
  */
-function getInputs(pullRequest) {
+function getInputs(pullRequest = {}) {
   const assignIssues =
     core.getInput("assign-issues") === "false" ? false : true;
   const assignPullRequest =
@@ -14840,6 +14840,12 @@ function getInputs(pullRequest) {
 
   const addMilestone =
     core.getInput("add-milestone") === "false" ? false : true;
+  
+  // PR conflict inputs
+  const conflictLabel = core.getInput("conflict-label") || "needs:refresh";
+  const conflictComment = core.getInput("conflict-comment") || "{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?";
+  const waitMS = core.getInput("wait-ms") || 15000;
+  const maxRetries = core.getInput("max-retries") || 5;
 
   // Add debug log of some information.
   core.debug(`Assign Issues: ${assignIssues} (${typeof assignIssues})`);
@@ -14851,15 +14857,23 @@ function getInputs(pullRequest) {
   );
   core.debug(`PR reviewers: ${prReviewers} (${typeof prReviewers})`);
   core.debug(`Add Milestone: ${addMilestone} (${typeof addMilestone})`);
+  core.debug(`Conflict Label: ${conflictLabel} (${typeof conflictLabel})`);
+  core.debug(`Conflict Comment: ${conflictComment} (${typeof conflictComment})`);
+  core.debug(`Wait Milliseconds: ${waitMS} (${typeof waitMS})`);
+  core.debug(`Max Retries: ${maxRetries} (${typeof maxRetries})`);
 
   return {
     assignIssues,
     addMilestone,
     assignPullRequest,
     commentTemplate,
+    conflictLabel,
+    conflictComment,
     failLabel,
+    maxRetries,
     passLabel,
     prReviewers,
+    waitMS,
   };
 }
 
@@ -15715,12 +15729,13 @@ class GitHub {
 const pr_conflict_core = __nccwpck_require__(2186);
 
 
-const { wait } = __nccwpck_require__(1608);
+const { wait, getInputs } = __nccwpck_require__(1608);
 
 class PRConflict {
   constructor(owner, repo) {
     this.repo = repo;
     this.owner = owner;
+    this.inputs = getInputs();
     this.gh = new GitHub({
       owner: this.owner,
       repo: this.repo,
@@ -15729,23 +15744,24 @@ class PRConflict {
 
   async run() {
     let tries = 0;
-    const maxTries = 5;
-    const waitTime = 15000;
+    const { waitMS, maxRetries } = this.inputs;
 
     let pullRequests = await this.gh.getAllPullRequests();
     let unknownMergeablePRs = pullRequests.filter(
       (pr) => pr.mergeable === "UNKNOWN"
     );
 
-    while (tries < maxTries && unknownMergeablePRs.length > 0) {
+    while (tries < Number(maxRetries) && unknownMergeablePRs.length > 0) {
       tries++;
       pr_conflict_core.info(`Try: ${tries}`);
-      pr_conflict_core.info(`${unknownMergeablePRs.length} PRs has unknown mergeable state`);
-      await wait(waitTime);
+      pr_conflict_core.info(
+        `${unknownMergeablePRs.length} PRs has unknown mergeable state`
+      );
+      await wait(Number(waitMS));
       pullRequests = await this.gh.getAllPullRequests();
       unknownMergeablePRs = pullRequests.filter(
         (pr) => pr.mergeable === "UNKNOWN"
-      );      
+      );
     }
 
     if (unknownMergeablePRs.length > 0) {
@@ -15762,9 +15778,7 @@ class PRConflict {
   async processPullRequest(pullRequest) {
     const { number, mergeable, locked, author, comments, labels } = pullRequest;
 
-    const conflictLabel = "needs: refresh";
-    const conflictComment =
-      "{author} This PR has conflicts that must be resolved before it can be merged.";
+    const { conflictLabel, conflictComment } = this.inputs;
     const commentBody = conflictComment.replace("{author}", `@${author.login}`);
 
     if (
@@ -15845,7 +15859,7 @@ const {
   getChangelog,
   getCredits,
   getDescription,
-  getInputs,
+  getInputs: pull_request_getInputs,
 } = __nccwpck_require__(1608);
 
 const [pull_request_owner, pull_request_repo] = process.env.GITHUB_REPOSITORY.split("/");
@@ -15881,7 +15895,7 @@ async function pull_request_run() {
       passLabel,
       commentTemplate,
       prReviewers,
-    } = getInputs(pullRequest);
+    } = pull_request_getInputs(pullRequest);
     pull_request_core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
     pull_request_core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
 

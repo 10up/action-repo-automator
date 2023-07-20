@@ -1,12 +1,13 @@
 const core = require("@actions/core");
 
 import GitHub from "./github";
-const { wait } = require("./utils.js");
+const { wait, getInputs } = require("./utils.js");
 
 export default class PRConflict {
   constructor(owner, repo) {
     this.repo = repo;
     this.owner = owner;
+    this.inputs = getInputs();
     this.gh = new GitHub({
       owner: this.owner,
       repo: this.repo,
@@ -15,23 +16,24 @@ export default class PRConflict {
 
   async run() {
     let tries = 0;
-    const maxTries = 5;
-    const waitTime = 15000;
+    const { waitMS, maxRetries } = this.inputs;
 
     let pullRequests = await this.gh.getAllPullRequests();
     let unknownMergeablePRs = pullRequests.filter(
       (pr) => pr.mergeable === "UNKNOWN"
     );
 
-    while (tries < maxTries && unknownMergeablePRs.length > 0) {
+    while (tries < Number(maxRetries) && unknownMergeablePRs.length > 0) {
       tries++;
       core.info(`Try: ${tries}`);
-      core.info(`${unknownMergeablePRs.length} PRs has unknown mergeable state`);
-      await wait(waitTime);
+      core.info(
+        `${unknownMergeablePRs.length} PRs has unknown mergeable state`
+      );
+      await wait(Number(waitMS));
       pullRequests = await this.gh.getAllPullRequests();
       unknownMergeablePRs = pullRequests.filter(
         (pr) => pr.mergeable === "UNKNOWN"
-      );      
+      );
     }
 
     if (unknownMergeablePRs.length > 0) {
@@ -48,9 +50,7 @@ export default class PRConflict {
   async processPullRequest(pullRequest) {
     const { number, mergeable, locked, author, comments, labels } = pullRequest;
 
-    const conflictLabel = "needs: refresh";
-    const conflictComment =
-      "{author} This PR has conflicts that must be resolved before it can be merged.";
+    const { conflictLabel, conflictComment } = this.inputs;
     const commentBody = conflictComment.replace("{author}", `@${author.login}`);
 
     if (

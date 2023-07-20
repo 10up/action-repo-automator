@@ -28,8 +28,12 @@ This GitHub Action Helps with the following operations:
 | add-milestone | true | Whether to automatically add a Milestone to a PR |
 | fail-label | `needs:feedback` | The label to be added to PR if the pull request doesn't pass the validation |
 | pass-label | `needs:code-review` | The label to be added to PR if the pull request pass the validation |
+| conflict-label | `needs:refresh` | The label to be added to PR if the pull request has conflicts |
 | comment-template | `{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?` | Comment template for adding comment on PR if it doesn't pass the validation |
+| conflict-comment | `{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?` | Comment template for adding comment on PR if it has conflicts |
 | reviewers | `team:open-source-practice` | List of Reviewers to request PR review after passing all validation checks. Add prefix `team:` if you want to request review from the team.
+| wait-ms | `15000` | Time to wait in milliseconds between retries to check PR mergeable status |
+| max-retries | `5` | Maximum number of retries to check PR mergeable status |
 
 ## Example Workflow File
 
