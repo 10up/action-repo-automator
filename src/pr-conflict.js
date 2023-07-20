@@ -14,9 +14,34 @@ export default class PRConflict {
     });
   }
 
-  async run() {
+  async run(prNumber = null) {
     let tries = 0;
     const { waitMS, maxRetries } = this.inputs;
+
+    // Only process a single PR if a PR number is passed in.
+    if (prNumber) {
+      let pullRequest;
+      do {
+        if (pullRequest) {
+          tries++;
+          core.info(`Try: ${tries}`);
+          await wait(Number(waitMS));
+        }
+        pullRequest = await this.gh.getPullRequest(prNumber);
+        console.log(pullRequest);
+      } while (
+        tries < Number(maxRetries) &&
+        pullRequest.mergeable === "UNKNOWN"
+      );
+
+      if (pullRequest.mergeable === "UNKNOWN") {
+        core.info("Unable to determine mergeable state for PR");
+        return;
+      }
+
+      await this.processPullRequest(pullRequest);
+      return;
+    }
 
     let pullRequests = await this.gh.getAllPullRequests();
     let unknownMergeablePRs = pullRequests.filter(

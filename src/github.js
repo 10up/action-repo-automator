@@ -463,6 +463,11 @@ export default class GitHub {
     return version;
   }
 
+  /**
+   * Get all OPEN pull requests of repo.
+   * 
+   * @returns {array} array of pull requests
+   */
   async getAllPullRequests() {
     let cursor = null;
     let hasNextPage = true;
@@ -499,6 +504,12 @@ export default class GitHub {
     return pullRequests;
   }
 
+  /**
+   * Get pull requests in pages.
+   * 
+   * @param {string}  cursor  cursor for pagination
+   * @returns {array} array of pull requests
+   */
   async getPullRequestPages(cursor = null) {
     const query = `query ($owner: String!, $repo: String!, $after: String) {
         repository(owner: $owner, name: $repo) {
@@ -538,5 +549,47 @@ export default class GitHub {
       repo: this.repo,
       after: cursor,
     });
+  }
+
+  /**
+   * Get pull request by number.
+   *
+   * @param {number} prNumber PR number 
+   * @returns {object} pull request
+   */
+  async getPullRequest(prNumber) {
+    const query = `query ($owner: String!, $repo: String!, $prNumber: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $prNumber) {
+          id
+          number
+          mergeable
+          locked
+          author {
+            login
+          }
+          comments(last: 100) {
+            nodes {
+              id
+              body
+              databaseId
+            }
+          }
+          labels(last: 100) {
+            nodes {
+              id
+              name
+            }
+          }
+        }
+      }
+    }`;
+
+    const response = await this.octokit.graphql(query, {
+      owner: this.owner,
+      repo: this.repo,
+      prNumber: Number(prNumber),
+    });
+    return response?.repository?.pullRequest;
   }
 }

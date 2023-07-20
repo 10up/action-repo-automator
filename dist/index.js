@@ -15647,6 +15647,11 @@ class GitHub {
     return version;
   }
 
+  /**
+   * Get all OPEN pull requests of repo.
+   * 
+   * @returns {array} array of pull requests
+   */
   async getAllPullRequests() {
     let cursor = null;
     let hasNextPage = true;
@@ -15683,6 +15688,12 @@ class GitHub {
     return pullRequests;
   }
 
+  /**
+   * Get pull requests in pages.
+   * 
+   * @param {string}  cursor  cursor for pagination
+   * @returns {array} array of pull requests
+   */
   async getPullRequestPages(cursor = null) {
     const query = `query ($owner: String!, $repo: String!, $after: String) {
         repository(owner: $owner, name: $repo) {
@@ -15723,6 +15734,48 @@ class GitHub {
       after: cursor,
     });
   }
+
+  /**
+   * Get pull request by number.
+   *
+   * @param {number} prNumber PR number 
+   * @returns {object} pull request
+   */
+  async getPullRequest(prNumber) {
+    const query = `query ($owner: String!, $repo: String!, $prNumber: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $prNumber) {
+          id
+          number
+          mergeable
+          locked
+          author {
+            login
+          }
+          comments(last: 100) {
+            nodes {
+              id
+              body
+              databaseId
+            }
+          }
+          labels(last: 100) {
+            nodes {
+              id
+              name
+            }
+          }
+        }
+      }
+    }`;
+
+    const response = await this.octokit.graphql(query, {
+      owner: this.owner,
+      repo: this.repo,
+      prNumber: Number(prNumber),
+    });
+    return response?.repository?.pullRequest;
+  }
 }
 
 ;// CONCATENATED MODULE: ./src/pr-conflict.js
@@ -15742,9 +15795,34 @@ class PRConflict {
     });
   }
 
-  async run() {
+  async run(prNumber = null) {
     let tries = 0;
     const { waitMS, maxRetries } = this.inputs;
+
+    // Only process a single PR if a PR number is passed in.
+    if (prNumber) {
+      let pullRequest;
+      do {
+        if (pullRequest) {
+          tries++;
+          pr_conflict_core.info(`Try: ${tries}`);
+          await wait(Number(waitMS));
+        }
+        pullRequest = await this.gh.getPullRequest(prNumber);
+        console.log(pullRequest);
+      } while (
+        tries < Number(maxRetries) &&
+        pullRequest.mergeable === "UNKNOWN"
+      );
+
+      if (pullRequest.mergeable === "UNKNOWN") {
+        pr_conflict_core.info("Unable to determine mergeable state for PR");
+        return;
+      }
+
+      await this.processPullRequest(pullRequest);
+      return;
+    }
 
     let pullRequests = await this.gh.getAllPullRequests();
     let unknownMergeablePRs = pullRequests.filter(
@@ -15855,6 +15933,7 @@ const pull_request_github = __nccwpck_require__(5438);
 
 
 
+
 const {
   getChangelog,
   getCredits,
@@ -15900,7 +15979,7 @@ async function pull_request_run() {
     pull_request_core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
 
     // Handle Bot User
-    if ("Bot" === author.type) {
+    if ("Bot" === author?.type) {
       // Skip validation against bot user.
       await gh.addLabel(issueNumber, passLabel);
       await gh.requestPRReview(issueNumber, prReviewers);
@@ -15926,6 +16005,10 @@ async function pull_request_run() {
     if (!milestone && addMilestone) {
       await gh.addMilestone(issueNumber);
     }
+
+    // Check for conflicts.
+    const conflictFinder = new PRConflict(pull_request_owner, pull_request_repo);
+    await conflictFinder.run(pullRequest.number);
 
     // Skip Draft PR
     if (isDraft) {

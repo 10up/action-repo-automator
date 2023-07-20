@@ -2,6 +2,7 @@ const core = require("@actions/core");
 const github = require("@actions/github");
 
 import GitHub from "./github";
+import PRConflict from "./pr-conflict";
 
 const {
   getChangelog,
@@ -48,7 +49,7 @@ export async function run() {
     core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
 
     // Handle Bot User
-    if ("Bot" === author.type) {
+    if ("Bot" === author?.type) {
       // Skip validation against bot user.
       await gh.addLabel(issueNumber, passLabel);
       await gh.requestPRReview(issueNumber, prReviewers);
@@ -74,6 +75,10 @@ export async function run() {
     if (!milestone && addMilestone) {
       await gh.addMilestone(issueNumber);
     }
+
+    // Check for conflicts.
+    const conflictFinder = new PRConflict(owner, repo);
+    await conflictFinder.run(pullRequest.number);
 
     // Skip Draft PR
     if (isDraft) {
