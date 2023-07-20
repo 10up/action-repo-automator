@@ -1,7 +1,7 @@
-import core from "@actions/core";
-import github from "@actions/github";
+const core = require("@actions/core");
+const github = require("@actions/github");
 
-import PRConflict from "./src/pr-conflict";
+import PRConflict from "./pr-conflict";
 
 const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
 

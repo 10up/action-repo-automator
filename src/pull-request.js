@@ -1,14 +1,14 @@
 const core = require("@actions/core");
 const github = require("@actions/github");
 
-import GitHub from "./src/github";
+import GitHub from "./github";
 
 const {
   getChangelog,
   getCredits,
   getDescription,
   getInputs,
-} = require("./src/utils");
+} = require("./utils");
 
 const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
 
