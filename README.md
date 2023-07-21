@@ -46,6 +46,7 @@ To get started, you will want to copy the contents of the given example into `.g
 ```yml
 name: 'PR Automator'
 on:
+  push:
   pull_request:
     types:
       - opened
