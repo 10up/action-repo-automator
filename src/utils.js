@@ -45,10 +45,17 @@ export function getInputs(pullRequest = {}) {
 
   const addMilestone =
     core.getInput("add-milestone") === "false" ? false : true;
-  
+
   // PR conflict inputs
-  const conflictLabel = core.getInput("conflict-label") || "needs:refresh";
-  const conflictComment = core.getInput("conflict-comment") || "{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?";
+  const conflictLabel =
+    core.getInput("conflict-label") === "false"
+      ? false
+      : core.getInput("conflict-label") || "needs:refresh";
+  const conflictComment =
+    core.getInput("conflict-comment") === "false"
+      ? false
+      : core.getInput("conflict-comment") ||
+        "{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?";
   const waitMS = core.getInput("wait-ms") || 15000;
   const maxRetries = core.getInput("max-retries") || 5;
 
@@ -63,7 +70,9 @@ export function getInputs(pullRequest = {}) {
   core.debug(`PR reviewers: ${prReviewers} (${typeof prReviewers})`);
   core.debug(`Add Milestone: ${addMilestone} (${typeof addMilestone})`);
   core.debug(`Conflict Label: ${conflictLabel} (${typeof conflictLabel})`);
-  core.debug(`Conflict Comment: ${conflictComment} (${typeof conflictComment})`);
+  core.debug(
+    `Conflict Comment: ${conflictComment} (${typeof conflictComment})`
+  );
   core.debug(`Wait Milliseconds: ${waitMS} (${typeof waitMS})`);
   core.debug(`Max Retries: ${maxRetries} (${typeof maxRetries})`);
 

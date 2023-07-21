@@ -16,7 +16,12 @@ export default class PRConflict {
 
   async run(prNumber = null) {
     let tries = 0;
-    const { waitMS, maxRetries } = this.inputs;
+    const { waitMS, maxRetries, conflictLabel, conflictComment } = this.inputs;
+
+    if (!conflictLabel && !conflictComment) {
+      core.info("Skipping PR conflict operations");
+      return;
+    }
 
     // Only process a single PR if a PR number is passed in.
     if (prNumber) {
@@ -76,7 +81,9 @@ export default class PRConflict {
     const { number, mergeable, locked, author, comments, labels } = pullRequest;
 
     const { conflictLabel, conflictComment } = this.inputs;
-    const commentBody = conflictComment.replace("{author}", `@${author.login}`);
+    const commentBody = conflictComment
+      ? conflictComment.replace("{author}", `@${author.login}`)
+      : "";
 
     if (
       locked ||
@@ -86,17 +93,22 @@ export default class PRConflict {
       // Skip locked PRs, PRs with unknown mergeable state, and dependabot PRs
       return;
     }
-    console.log(comments);
-    console.log(labels);
+
     switch (mergeable) {
       case "CONFLICTING": {
         // Check if PR has conflict label. If not, add conflict label
-        if (!labels?.nodes?.some((label) => label.name === conflictLabel)) {
+        if (
+          conflictLabel &&
+          !labels?.nodes?.some((label) => label.name === conflictLabel)
+        ) {
           await this.gh.addLabel(number, conflictLabel);
         }
 
         // Check if PR has conflict comment. If not, add conflict comment
-        if (!comments?.nodes?.some((comment) => comment.body === commentBody)) {
+        if (
+          commentBody &&
+          !comments?.nodes?.some((comment) => comment.body === commentBody)
+        ) {
           await this.gh.addComment(number, commentBody);
         }
         break;
@@ -104,12 +116,18 @@ export default class PRConflict {
 
       case "MERGEABLE": {
         // Check if PR has conflict label. If yes, remove conflict label
-        if (labels?.nodes?.some((label) => label.name === conflictLabel)) {
+        if (
+          conflictLabel &&
+          labels?.nodes?.some((label) => label.name === conflictLabel)
+        ) {
           await this.gh.removeLabel(number, labels.nodes, conflictLabel);
         }
 
         // Check if PR has conflict comment. If yes, remove conflict comment
-        if (comments?.nodes?.some((comment) => comment.body === commentBody)) {
+        if (
+          commentBody &&
+          comments?.nodes?.some((comment) => comment.body === commentBody)
+        ) {
           const commentIds = comments?.nodes
             ?.filter((comment) => comment.body === commentBody)
             .map((comment) => comment.databaseId);

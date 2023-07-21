@@ -14840,10 +14840,17 @@ function getInputs(pullRequest = {}) {
 
   const addMilestone =
     core.getInput("add-milestone") === "false" ? false : true;
-  
+
   // PR conflict inputs
-  const conflictLabel = core.getInput("conflict-label") || "needs:refresh";
-  const conflictComment = core.getInput("conflict-comment") || "{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?";
+  const conflictLabel =
+    core.getInput("conflict-label") === "false"
+      ? false
+      : core.getInput("conflict-label") || "needs:refresh";
+  const conflictComment =
+    core.getInput("conflict-comment") === "false"
+      ? false
+      : core.getInput("conflict-comment") ||
+        "{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?";
   const waitMS = core.getInput("wait-ms") || 15000;
   const maxRetries = core.getInput("max-retries") || 5;
 
@@ -14858,7 +14865,9 @@ function getInputs(pullRequest = {}) {
   core.debug(`PR reviewers: ${prReviewers} (${typeof prReviewers})`);
   core.debug(`Add Milestone: ${addMilestone} (${typeof addMilestone})`);
   core.debug(`Conflict Label: ${conflictLabel} (${typeof conflictLabel})`);
-  core.debug(`Conflict Comment: ${conflictComment} (${typeof conflictComment})`);
+  core.debug(
+    `Conflict Comment: ${conflictComment} (${typeof conflictComment})`
+  );
   core.debug(`Wait Milliseconds: ${waitMS} (${typeof waitMS})`);
   core.debug(`Max Retries: ${maxRetries} (${typeof maxRetries})`);
 
@@ -15797,7 +15806,12 @@ class PRConflict {
 
   async run(prNumber = null) {
     let tries = 0;
-    const { waitMS, maxRetries } = this.inputs;
+    const { waitMS, maxRetries, conflictLabel, conflictComment } = this.inputs;
+
+    if (!conflictLabel && !conflictComment) {
+      pr_conflict_core.info("Skipping PR conflict operations");
+      return;
+    }
 
     // Only process a single PR if a PR number is passed in.
     if (prNumber) {
@@ -15857,7 +15871,9 @@ class PRConflict {
     const { number, mergeable, locked, author, comments, labels } = pullRequest;
 
     const { conflictLabel, conflictComment } = this.inputs;
-    const commentBody = conflictComment.replace("{author}", `@${author.login}`);
+    const commentBody = conflictComment
+      ? conflictComment.replace("{author}", `@${author.login}`)
+      : "";
 
     if (
       locked ||
@@ -15867,17 +15883,22 @@ class PRConflict {
       // Skip locked PRs, PRs with unknown mergeable state, and dependabot PRs
       return;
     }
-    console.log(comments);
-    console.log(labels);
+
     switch (mergeable) {
       case "CONFLICTING": {
         // Check if PR has conflict label. If not, add conflict label
-        if (!labels?.nodes?.some((label) => label.name === conflictLabel)) {
+        if (
+          conflictLabel &&
+          !labels?.nodes?.some((label) => label.name === conflictLabel)
+        ) {
           await this.gh.addLabel(number, conflictLabel);
         }
 
         // Check if PR has conflict comment. If not, add conflict comment
-        if (!comments?.nodes?.some((comment) => comment.body === commentBody)) {
+        if (
+          commentBody &&
+          !comments?.nodes?.some((comment) => comment.body === commentBody)
+        ) {
           await this.gh.addComment(number, commentBody);
         }
         break;
@@ -15885,12 +15906,18 @@ class PRConflict {
 
       case "MERGEABLE": {
         // Check if PR has conflict label. If yes, remove conflict label
-        if (labels?.nodes?.some((label) => label.name === conflictLabel)) {
+        if (
+          conflictLabel &&
+          labels?.nodes?.some((label) => label.name === conflictLabel)
+        ) {
           await this.gh.removeLabel(number, labels.nodes, conflictLabel);
         }
 
         // Check if PR has conflict comment. If yes, remove conflict comment
-        if (comments?.nodes?.some((comment) => comment.body === commentBody)) {
+        if (
+          commentBody &&
+          comments?.nodes?.some((comment) => comment.body === commentBody)
+        ) {
           const commentIds = comments?.nodes
             ?.filter((comment) => comment.body === commentBody)
             .map((comment) => comment.databaseId);
