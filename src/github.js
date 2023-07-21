@@ -465,7 +465,7 @@ export default class GitHub {
 
   /**
    * Get all OPEN pull requests of repo.
-   * 
+   *
    * @returns {array} array of pull requests
    */
   async getAllPullRequests() {
@@ -474,31 +474,39 @@ export default class GitHub {
     const pullRequests = [];
 
     while (hasNextPage) {
-      core.info(`Getting pull requests page ${cursor}`);
-      core.info(`Has NextPage: ${hasNextPage}`);
+      try {
+        core.info(`Getting pull requests page ${cursor}`);
+        core.info(`Has NextPage: ${hasNextPage}`);
 
-      const response = await this.getPullRequestPages(cursor);
+        const response = await this.getPullRequestPages(cursor);
 
-      const {
-        errors,
-        repository: {
-          pullRequests: { nodes: prs, pageInfo },
-        },
-      } = response;
+        const {
+          errors,
+          repository: {
+            pullRequests: { nodes: prs, pageInfo },
+          },
+        } = response;
 
-      if (errors) {
-        core.info(errors);
-        core.info("Unable to get pull requests");
-        // @TODO: Handle errors
-        return;
+        if (errors) {
+          core.info(errors);
+          core.info("Unable to get pull requests");
+          let errorMessage = "Unable to get pull requests";
+          if (errors.length > 0 && errors[0].message) {
+            errorMessage = errors[0].message;
+          }
+          throw new Error(`Unable to get pull requests: ${errorMessage}`);
+        }
+
+        if (prs.length > 0) {
+          core.info(`Found ${prs.length} pull requests`);
+          pullRequests.push(...prs);
+        }
+        cursor = pageInfo.endCursor;
+        hasNextPage = pageInfo.hasNextPage;
+      } catch (error) {
+        core.info(`Failed to get pull requests: ${error}`);
+        throw new Error(`Failed to get pull requests: ${error}`);
       }
-
-      if (prs.length > 0) {
-        core.info(`Found ${prs.length} pull requests`);
-        pullRequests.push(...prs);
-      }
-      cursor = pageInfo.endCursor;
-      hasNextPage = pageInfo.hasNextPage;
     }
 
     return pullRequests;
@@ -506,7 +514,7 @@ export default class GitHub {
 
   /**
    * Get pull requests in pages.
-   * 
+   *
    * @param {string}  cursor  cursor for pagination
    * @returns {array} array of pull requests
    */
@@ -554,7 +562,7 @@ export default class GitHub {
   /**
    * Get pull request by number.
    *
-   * @param {number} prNumber PR number 
+   * @param {number} prNumber PR number
    * @returns {object} pull request
    */
   async getPullRequest(prNumber) {

@@ -15658,7 +15658,7 @@ class GitHub {
 
   /**
    * Get all OPEN pull requests of repo.
-   * 
+   *
    * @returns {array} array of pull requests
    */
   async getAllPullRequests() {
@@ -15667,31 +15667,39 @@ class GitHub {
     const pullRequests = [];
 
     while (hasNextPage) {
-      core.info(`Getting pull requests page ${cursor}`);
-      core.info(`Has NextPage: ${hasNextPage}`);
+      try {
+        core.info(`Getting pull requests page ${cursor}`);
+        core.info(`Has NextPage: ${hasNextPage}`);
 
-      const response = await this.getPullRequestPages(cursor);
+        const response = await this.getPullRequestPages(cursor);
 
-      const {
-        errors,
-        repository: {
-          pullRequests: { nodes: prs, pageInfo },
-        },
-      } = response;
+        const {
+          errors,
+          repository: {
+            pullRequests: { nodes: prs, pageInfo },
+          },
+        } = response;
 
-      if (errors) {
-        core.info(errors);
-        core.info("Unable to get pull requests");
-        // @TODO: Handle errors
-        return;
+        if (errors) {
+          core.info(errors);
+          core.info("Unable to get pull requests");
+          let errorMessage = "Unable to get pull requests";
+          if (errors.length > 0 && errors[0].message) {
+            errorMessage = errors[0].message;
+          }
+          throw new Error(`Unable to get pull requests: ${errorMessage}`);
+        }
+
+        if (prs.length > 0) {
+          core.info(`Found ${prs.length} pull requests`);
+          pullRequests.push(...prs);
+        }
+        cursor = pageInfo.endCursor;
+        hasNextPage = pageInfo.hasNextPage;
+      } catch (error) {
+        core.info(`Failed to get pull requests: ${error}`);
+        throw new Error(`Failed to get pull requests: ${error}`);
       }
-
-      if (prs.length > 0) {
-        core.info(`Found ${prs.length} pull requests`);
-        pullRequests.push(...prs);
-      }
-      cursor = pageInfo.endCursor;
-      hasNextPage = pageInfo.hasNextPage;
     }
 
     return pullRequests;
@@ -15699,7 +15707,7 @@ class GitHub {
 
   /**
    * Get pull requests in pages.
-   * 
+   *
    * @param {string}  cursor  cursor for pagination
    * @returns {array} array of pull requests
    */
@@ -15747,7 +15755,7 @@ class GitHub {
   /**
    * Get pull request by number.
    *
-   * @param {number} prNumber PR number 
+   * @param {number} prNumber PR number
    * @returns {object} pull request
    */
   async getPullRequest(prNumber) {
@@ -15830,7 +15838,7 @@ class PRConflict {
       );
 
       if (pullRequest.mergeable === "UNKNOWN") {
-        pr_conflict_core.info("Unable to determine mergeable state for PR");
+        pr_conflict_core.error(`Unable to determine mergeable state for PR: ${prNumber}`);
         return;
       }
 
@@ -15838,27 +15846,32 @@ class PRConflict {
       return;
     }
 
-    let pullRequests = await this.gh.getAllPullRequests();
-    let unknownMergeablePRs = pullRequests.filter(
-      (pr) => pr.mergeable === "UNKNOWN"
-    );
+    let pullRequests;
+    let unknownMergeablePRs;
 
-    while (tries < Number(maxRetries) && unknownMergeablePRs.length > 0) {
-      tries++;
-      pr_conflict_core.info(`Try: ${tries}`);
-      pr_conflict_core.info(
-        `${unknownMergeablePRs.length} PRs has unknown mergeable state`
-      );
-      await wait(Number(waitMS));
+    do {
+      if (pullRequests) {
+        tries++;
+        pr_conflict_core.info(`Try: ${tries}`);
+        pr_conflict_core.info(
+          `${unknownMergeablePRs?.length || ""} PRs has unknown mergeable state`
+        );
+        await wait(Number(waitMS));
+      }
       pullRequests = await this.gh.getAllPullRequests();
       unknownMergeablePRs = pullRequests.filter(
         (pr) => pr.mergeable === "UNKNOWN"
       );
-    }
+    } while (tries < Number(maxRetries) && unknownMergeablePRs.length > 0);
 
     if (unknownMergeablePRs.length > 0) {
-      // Stop processing, @todo: handle this case
-      pr_conflict_core.info("Unable to determine mergeable state for PRs");
+      // Stop processing, Mark Job as failed.
+      pr_conflict_core.error(
+        `Unable to determine mergeable state for PRs: ${unknownMergeablePRs
+          .map((pr) => pr.number)
+          .join(", ")}`
+      );
+      pr_conflict_core.setFailed("Unable to determine mergeable state for PRs");
       return;
     }
 
@@ -15943,15 +15956,20 @@ const github = __nccwpck_require__(5438);
 const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
 
 async function run() {
-    // Bail if not a on push event.
-    if ("push" !== github.context.eventName) {
-        push_core.info("Skipping operations on push event");
-        return;
-    }
+  // Bail if not a on push event.
+  if ("push" !== github.context.eventName) {
+    push_core.info("Skipping operations on push event");
+    return;
+  }
 
-    // Handle PR Conflicts.
+  // Handle PR Conflicts.
+  try {
     const conflictFinder = new PRConflict(owner, repo);
     await conflictFinder.run();
+  } catch (error) {
+    const errorMessage = error.message || "Unknown error";
+    push_core.setFailed(errorMessage);
+  }
 }
 
 ;// CONCATENATED MODULE: ./src/pull-request.js

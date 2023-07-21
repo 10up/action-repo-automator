@@ -40,7 +40,7 @@ export default class PRConflict {
       );
 
       if (pullRequest.mergeable === "UNKNOWN") {
-        core.info("Unable to determine mergeable state for PR");
+        core.error(`Unable to determine mergeable state for PR: ${prNumber}`);
         return;
       }
 
@@ -48,27 +48,32 @@ export default class PRConflict {
       return;
     }
 
-    let pullRequests = await this.gh.getAllPullRequests();
-    let unknownMergeablePRs = pullRequests.filter(
-      (pr) => pr.mergeable === "UNKNOWN"
-    );
+    let pullRequests;
+    let unknownMergeablePRs;
 
-    while (tries < Number(maxRetries) && unknownMergeablePRs.length > 0) {
-      tries++;
-      core.info(`Try: ${tries}`);
-      core.info(
-        `${unknownMergeablePRs.length} PRs has unknown mergeable state`
-      );
-      await wait(Number(waitMS));
+    do {
+      if (pullRequests) {
+        tries++;
+        core.info(`Try: ${tries}`);
+        core.info(
+          `${unknownMergeablePRs?.length || ""} PRs has unknown mergeable state`
+        );
+        await wait(Number(waitMS));
+      }
       pullRequests = await this.gh.getAllPullRequests();
       unknownMergeablePRs = pullRequests.filter(
         (pr) => pr.mergeable === "UNKNOWN"
       );
-    }
+    } while (tries < Number(maxRetries) && unknownMergeablePRs.length > 0);
 
     if (unknownMergeablePRs.length > 0) {
-      // Stop processing, @todo: handle this case
-      core.info("Unable to determine mergeable state for PRs");
+      // Stop processing, Mark Job as failed.
+      core.error(
+        `Unable to determine mergeable state for PRs: ${unknownMergeablePRs
+          .map((pr) => pr.number)
+          .join(", ")}`
+      );
+      core.setFailed("Unable to determine mergeable state for PRs");
       return;
     }
 
