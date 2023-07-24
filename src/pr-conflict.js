@@ -16,9 +16,10 @@ export default class PRConflict {
 
   async run(prNumber = null) {
     let tries = 0;
-    const { waitMS, maxRetries, conflictLabel, conflictComment } = this.inputs;
+    const { waitMS, maxRetries, conflictLabel, conflictComment, syncPRBranch } =
+      this.inputs;
 
-    if (!conflictLabel && !conflictComment) {
+    if (!conflictLabel && !conflictComment && !syncPRBranch) {
       core.info("Skipping PR conflict operations");
       return;
     }
@@ -85,7 +86,7 @@ export default class PRConflict {
   async processPullRequest(pullRequest) {
     const { number, mergeable, locked, author, comments, labels } = pullRequest;
 
-    const { conflictLabel, conflictComment } = this.inputs;
+    const { conflictLabel, conflictComment, syncPRBranch } = this.inputs;
     const commentBody = conflictComment
       ? conflictComment.replace("{author}", `@${author.login}`)
       : "";
@@ -141,9 +142,17 @@ export default class PRConflict {
           }
         }
 
-        // Update PR branch to latest base branch if PR is not up to date'
-        if (pullRequest.baseRefOid !== pullRequest?.baseRef?.target?.oid) {
-          await this.gh.updateBranch(number);
+        // Update PR branch to latest base branch if PR is not up to date.
+        if (
+          syncPRBranch &&
+          pullRequest.baseRefOid !== pullRequest?.baseRef?.target?.oid
+        ) {
+          try {
+            await this.gh.updateBranch(number);
+          } catch (error) {
+            core.error(`Unable to update PR branch: ${number}`);
+            core.error(error);
+          }
         }
         break;
       }

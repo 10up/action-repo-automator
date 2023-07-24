@@ -11,6 +11,7 @@ export function getInputs(pullRequest = {}) {
     core.getInput("assign-issues") === "false" ? false : true;
   const assignPullRequest =
     core.getInput("assign-pr") === "false" ? false : true;
+  const syncPRBranch = core.getBooleanInput("sync-pr-branch");
   const failLabel =
     core.getInput("fail-label") === "false"
       ? false
@@ -87,6 +88,7 @@ export function getInputs(pullRequest = {}) {
     maxRetries,
     passLabel,
     prReviewers,
+    syncPRBranch,
     waitMS,
   };
 }

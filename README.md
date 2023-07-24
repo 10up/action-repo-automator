@@ -16,6 +16,7 @@ This GitHub Action Helps with the following operations:
 - **Add Milestone:** Automatically adds a Milestone to PRs. If the PR is connected to an issue with a milestone, the same milestone will be added to the PR. Otherwise, the next milestone from the available milestones will be assigned, sorted using version comparison.
 - **Auto-label merge conflicts:** Automatically adds a label to PRs with merge conflicts, and once a conflict is resolved, the label is automatically removed.
 - **Auto-comment merge conflicts:** Automatically adds a comment to PRs with merge conflicts to notify the PR author, and once a conflict is resolved, the comment is automatically removed.
+- **Auto-Sync PR branch:** Automatically keeps the pull request branch up to date with the base branch.
 
 ## Configuration
 
@@ -36,6 +37,7 @@ This GitHub Action Helps with the following operations:
 | comment-template | `{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?` | Comment template for adding comment on PR if it doesn't pass the validation |
 | conflict-comment | `{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?` | Comment template for adding comment on PR if it has conflicts |
 | reviewers | `team:open-source-practice` | List of Reviewers to request PR review after passing all validation checks. Add prefix `team:` if you want to request review from the team.
+| sync-pr-branch | false | Whether to enable automatic synchronization of the pull request branch with the base branch |
 | wait-ms | `15000` | Time to wait in milliseconds between retries to check PR mergeable status |
 | max-retries | `5` | Maximum number of retries to check PR mergeable status |
 
@@ -47,6 +49,8 @@ To get started, you will want to copy the contents of the given example into `.g
 name: 'PR Automator'
 on:
   push:
+    branches:
+      - develop
   pull_request:
     types:
       - opened
@@ -74,13 +78,15 @@ jobs:
 ```
 
 ### (Optional) GitHub Personal Access Token (PAT)
-When the default `GITHUB_TOKEN` doesn't have the necessary permissions, you need to create a new GitHub personal access token. 
+
+When the default `GITHUB_TOKEN` doesn't have the necessary permissions, you need to create a new GitHub personal access token.
 
 For example, if you'd like to request a review from **GitHub teams**, you need to create a new PAT because the default `GITHUB_TOKEN` doesn't have the permission to request a review from a team.
 
 The PAT needs to have the `repo` scope and the account used for create a `PAT` needs to have the write permission to the repository. Once you create a new PAT, set it as a secret in your repository.
 
 You have to pass your `PAT` to `GITHUB_TOKEN`  environment variable, as below.
+
 ```yml
 env:
   GITHUB_TOKEN: ${{ secrets.PAT }}
