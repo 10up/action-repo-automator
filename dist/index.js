@@ -35857,6 +35857,7 @@ function getInputs(pullRequest = {}) {
     core.getInput("assign-issues") === "false" ? false : true;
   const assignPullRequest =
     core.getInput("assign-pr") === "false" ? false : true;
+  const syncPRBranch = core.getBooleanInput("sync-pr-branch");
   const failLabel =
     core.getInput("fail-label") === "false"
       ? false
@@ -35933,6 +35934,7 @@ function getInputs(pullRequest = {}) {
     maxRetries,
     passLabel,
     prReviewers,
+    syncPRBranch,
     waitMS,
   };
 }
@@ -36964,9 +36966,10 @@ class PRConflict {
 
   async run(prNumber = null) {
     let tries = 0;
-    const { waitMS, maxRetries, conflictLabel, conflictComment } = this.inputs;
+    const { waitMS, maxRetries, conflictLabel, conflictComment, syncPRBranch } =
+      this.inputs;
 
-    if (!conflictLabel && !conflictComment) {
+    if (!conflictLabel && !conflictComment && !syncPRBranch) {
       pr_conflict_core.info("Skipping PR conflict operations");
       return;
     }
@@ -37033,7 +37036,7 @@ class PRConflict {
   async processPullRequest(pullRequest) {
     const { number, mergeable, locked, author, comments, labels } = pullRequest;
 
-    const { conflictLabel, conflictComment } = this.inputs;
+    const { conflictLabel, conflictComment, syncPRBranch } = this.inputs;
     const commentBody = conflictComment
       ? conflictComment.replace("{author}", `@${author.login}`)
       : "";
@@ -37089,9 +37092,17 @@ class PRConflict {
           }
         }
 
-        // Update PR branch to latest base branch if PR is not up to date'
-        if (pullRequest.baseRefOid !== pullRequest?.baseRef?.target?.oid) {
-          await this.gh.updateBranch(number);
+        // Update PR branch to latest base branch if PR is not up to date.
+        if (
+          syncPRBranch &&
+          pullRequest.baseRefOid !== pullRequest?.baseRef?.target?.oid
+        ) {
+          try {
+            await this.gh.updateBranch(number);
+          } catch (error) {
+            pr_conflict_core.error(`Unable to update PR branch: ${number}`);
+            pr_conflict_core.error(error);
+          }
         }
         break;
       }
