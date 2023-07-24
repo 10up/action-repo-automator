@@ -530,6 +530,12 @@ export default class GitHub {
               author {
                 login
               }
+              baseRefOid
+              baseRef {
+                target{
+                  oid
+                }
+              }
               comments(last: 100) {
                 nodes {
                   id
@@ -576,6 +582,12 @@ export default class GitHub {
           author {
             login
           }
+          baseRefOid
+          baseRef {
+            target{
+              oid
+            }
+          }
           comments(last: 100) {
             nodes {
               id
@@ -599,5 +611,20 @@ export default class GitHub {
       prNumber: Number(prNumber),
     });
     return response?.repository?.pullRequest;
+  }
+
+  /**
+   * Update branch to latest base branch.
+   *
+   * @param {string} prNumber PR number
+   */
+  async updateBranch(prNumber) {
+    const response = await this.octokit.pulls.updateBranch({
+      owner: this.owner,
+      repo: this.repo,
+      pull_number: prNumber,
+    });
+
+    return response;
   }
 }

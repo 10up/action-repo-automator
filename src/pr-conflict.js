@@ -140,6 +140,11 @@ export default class PRConflict {
             await this.gh.removeComment(commentIds[0]);
           }
         }
+
+        // Update PR branch to latest base branch if PR is not up to date'
+        if (pullRequest.baseRefOid !== pullRequest?.baseRef?.target?.oid) {
+          await this.gh.updateBranch(number);
+        }
         break;
       }
 

@@ -36846,6 +36846,12 @@ class GitHub {
               author {
                 login
               }
+              baseRefOid
+              baseRef {
+                target{
+                  oid
+                }
+              }
               comments(last: 100) {
                 nodes {
                   id
@@ -36892,6 +36898,12 @@ class GitHub {
           author {
             login
           }
+          baseRefOid
+          baseRef {
+            target{
+              oid
+            }
+          }
           comments(last: 100) {
             nodes {
               id
@@ -36915,6 +36927,21 @@ class GitHub {
       prNumber: Number(prNumber),
     });
     return response?.repository?.pullRequest;
+  }
+
+  /**
+   * Update branch to latest base branch.
+   *
+   * @param {string} prNumber PR number
+   */
+  async updateBranch(prNumber) {
+    const response = await this.octokit.pulls.updateBranch({
+      owner: this.owner,
+      repo: this.repo,
+      pull_number: prNumber,
+    });
+
+    return response;
   }
 }
 
@@ -37060,6 +37087,11 @@ class PRConflict {
           if (commentIds.length > 0) {
             await this.gh.removeComment(commentIds[0]);
           }
+        }
+
+        // Update PR branch to latest base branch if PR is not up to date'
+        if (pullRequest.baseRefOid !== pullRequest?.baseRef?.target?.oid) {
+          await this.gh.updateBranch(number);
         }
         break;
       }
