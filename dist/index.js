@@ -37313,6 +37313,7 @@ async function pull_request_run() {
       passLabel,
       commentTemplate,
       prReviewers,
+      prWelcomeMessage,
     } = pull_request_getInputs(pullRequest);
     pull_request_core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
     pull_request_core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
@@ -37346,8 +37347,10 @@ async function pull_request_run() {
     }
 
     // Add welcome message to PR if first time contributor.
-    const welcomeMessage = new WelcomeMessage(pull_request_owner, pull_request_repo);
-    await welcomeMessage.run();
+    if ( prWelcomeMessage ) {
+      const welcomeMessage = new WelcomeMessage(pull_request_owner, pull_request_repo);
+      await welcomeMessage.run();
+    }
 
     // Check for conflicts.
     const conflictFinder = new PRConflict(pull_request_owner, pull_request_repo);

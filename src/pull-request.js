@@ -45,6 +45,7 @@ export async function run() {
       passLabel,
       commentTemplate,
       prReviewers,
+      prWelcomeMessage,
     } = getInputs(pullRequest);
     core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
     core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
@@ -78,8 +79,10 @@ export async function run() {
     }
 
     // Add welcome message to PR if first time contributor.
-    const welcomeMessage = new WelcomeMessage(owner, repo);
-    await welcomeMessage.run();
+    if ( prWelcomeMessage ) {
+      const welcomeMessage = new WelcomeMessage(owner, repo);
+      await welcomeMessage.run();
+    }
 
     // Check for conflicts.
     const conflictFinder = new PRConflict(owner, repo);
