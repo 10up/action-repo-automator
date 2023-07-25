@@ -36970,7 +36970,6 @@ class PRConflict {
           await wait(Number(waitMS));
         }
         pullRequest = await this.gh.getPullRequest(prNumber);
-        console.log(pullRequest);
       } while (
         tries < Number(maxRetries) &&
         pullRequest.mergeable === "UNKNOWN"
@@ -37150,8 +37149,8 @@ class WelcomeMessage {
       return;
     }
 
-    console.log("isPR", isPR);
-    console.log("isIssue", isIssue);
+    lib_core.info(`isPR: ${isPR}`);
+    lib_core.info(`isIssue: ${isIssue}`);
 
     if (isIssue && !issueWelcomeMessage) {
       lib_core.info("Issue welcome message is not provided! Skipping...");
@@ -37222,7 +37221,7 @@ class WelcomeMessage {
       if (edges.length === 0) {
         return true;
       }
-      console.log(edges);
+
       return !edges.some(({ node }) => node.number < prNumber);
     } catch (error) {
       lib_core.info(`Failed to check if PR is first PR: ${error}`);

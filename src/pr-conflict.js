@@ -33,7 +33,6 @@ export default class PRConflict {
           await wait(Number(waitMS));
         }
         pullRequest = await this.gh.getPullRequest(prNumber);
-        console.log(pullRequest);
       } while (
         tries < Number(maxRetries) &&
         pullRequest.mergeable === "UNKNOWN"

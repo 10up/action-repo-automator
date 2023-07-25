@@ -32,8 +32,8 @@ export default class WelcomeMessage {
       return;
     }
 
-    console.log("isPR", isPR);
-    console.log("isIssue", isIssue);
+    core.info(`isPR: ${isPR}`);
+    core.info(`isIssue: ${isIssue}`);
 
     if (isIssue && !issueWelcomeMessage) {
       core.info("Issue welcome message is not provided! Skipping...");
@@ -104,7 +104,7 @@ export default class WelcomeMessage {
       if (edges.length === 0) {
         return true;
       }
-      console.log(edges);
+
       return !edges.some(({ node }) => node.number < prNumber);
     } catch (error) {
       core.info(`Failed to check if PR is first PR: ${error}`);
