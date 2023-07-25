@@ -35870,6 +35870,14 @@ function getInputs(pullRequest = {}) {
       ? false
       : core.getInput("comment-template") ||
         "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?";
+  const issueWelcomeMessage =
+    core.getInput("issue-welcome-message") === "false"
+      ? false
+      : core.getInput("issue-welcome-message") || false;
+  const prWelcomeMessage =
+    core.getInput("pr-welcome-message") === "false"
+      ? false
+      : core.getInput("pr-welcome-message") || false;
 
   const authorLogin = pullRequest?.user?.login;
   const reviewers = core.getMultilineInput("reviewers");
@@ -35929,10 +35937,12 @@ function getInputs(pullRequest = {}) {
     commentTemplate,
     conflictLabel,
     conflictComment,
+    issueWelcomeMessage,
     failLabel,
     maxRetries,
     passLabel,
     prReviewers,
+    prWelcomeMessage,
     waitMS,
   };
 }
@@ -36428,12 +36438,8 @@ class GitHub {
         repo: this.repo,
         issue_number: prNumber,
       });
-      const isExist = comments.some(({ user, body }) => {
-        // Check comments of Bot user only.
-        if ("Bot" !== user.type) {
-          return false;
-        }
 
+      const isExist = comments.some(({ body }) => {
         return body === message;
       });
 
@@ -36916,6 +36922,16 @@ class GitHub {
     });
     return response?.repository?.pullRequest;
   }
+
+  /**
+   * Run GraphQL query.
+   * @param {string} query
+   * @param {object} variables
+   * @returns {object} response
+   */
+  async graphql(query, variables) {
+    return this.octokit.graphql(query, variables);
+  }
 }
 
 ;// CONCATENATED MODULE: ./src/pr-conflict.js
@@ -37243,9 +37259,190 @@ async function pull_request_run() {
   }
 }
 
+// EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
+var lib_core = __nccwpck_require__(2186);
+// EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js
+var lib_github = __nccwpck_require__(5438);
+;// CONCATENATED MODULE: ./src/welcome-message.js
+
+
+
+
+const { getInputs: welcome_message_getInputs } = __nccwpck_require__(1608);
+
+class WelcomeMessage {
+  constructor(owner, repo) {
+    this.repo = repo;
+    this.owner = owner;
+    this.inputs = welcome_message_getInputs();
+    this.gh = new GitHub({
+      owner: this.owner,
+      repo: this.repo,
+    });
+  }
+
+  async run() {
+    const context = lib_github.context;
+
+    if (context.payload.action !== "opened") {
+      lib_core.info("Not an opened action! Skipping...");
+      return;
+    }
+
+    const isPR =
+      !!context.payload.pull_request && context.eventName === "pull_request";
+    const isIssue = !!context.payload.issue && context.eventName === "issues";
+    const { issueWelcomeMessage, prWelcomeMessage } = this.inputs;
+    if (!isPR && !isIssue) {
+      lib_core.info("Not a pull request or Issue! Skipping...");
+      return;
+    }
+
+    console.log("isPR", isPR);
+    console.log("isIssue", isIssue);
+
+    if (isIssue && !issueWelcomeMessage) {
+      lib_core.info("Issue welcome message is not provided! Skipping...");
+      return;
+    }
+
+    if (isPR && !prWelcomeMessage) {
+      lib_core.info("PR welcome message is not provided! Skipping...");
+      return;
+    }
+
+    const { issue, pull_request } = context.payload;
+    const { number } = issue || pull_request;
+    const author = context.payload?.sender?.login;
+    if (!author) {
+      lib_core.info("No author found! Skipping...");
+      return;
+    }
+
+    let isFirst = false;
+    if (isIssue) {
+      isFirst = await this.isFirstIssue(author, number);
+    } else if (isPR) {
+      isFirst = await this.isFirstPR(author, number);
+    }
+
+    if (!isFirst) {
+      lib_core.info("Not first issue or PR! Skipping...");
+      return;
+    }
+
+    // Add welcome message
+    lib_core.info("Adding welcome message...");
+    const welcomeMessage = isIssue ? issueWelcomeMessage : prWelcomeMessage;
+    const comment = welcomeMessage.replace("{author}", `@${author}`);
+
+    await this.gh.addComment(number, comment);
+  }
+
+  /**
+   * Check if PR is first PR of user.
+   *
+   * @param {string} prAuthor
+   * @param {number} prNumber
+   * @returns
+   */
+  async isFirstPR(prAuthor, prNumber) {
+    try {
+      const query = `query ($query: String!) {
+        search(query: $query, first: 10, type: ISSUE) {
+          edges {
+            node {
+              ... on PullRequest {
+                number
+              }
+            }
+          }
+        }
+      }`;
+
+      const response = await this.gh.graphql(query, {
+        query: `is:pr author:${prAuthor} repo:${this.owner}/${this.repo}`,
+      });
+
+      const {
+        search: { edges },
+      } = response;
+      if (edges.length === 0) {
+        return true;
+      }
+      console.log(edges);
+      return !edges.some(({ node }) => node.number < prNumber);
+    } catch (error) {
+      lib_core.info(`Failed to check if PR is first PR: ${error}`);
+      return false;
+    }
+  }
+
+  async isFirstIssue(createdBy, issueNumber) {
+    try {
+      const query = `query query($owner: String!, $repo: String!, $createdBy: String!) {
+        repository(owner: $owner, name: $repo) {
+          issues(
+            filterBy: {createdBy: $createdBy}
+            first: 10
+            orderBy: {field: CREATED_AT, direction: ASC}
+          ) {
+            edges {
+              node {
+                number
+              }
+            }
+          }
+        }
+      }`;
+
+      const response = await this.gh.graphql(query, {
+        owner: this.owner,
+        repo: this.repo,
+        createdBy: createdBy,
+      });
+
+      const issues = response?.repository?.issues?.edges;
+      if (issues.length === 0) {
+        return true;
+      }
+      return !issues.some(({ node }) => node.number < issueNumber);
+    } catch (error) {
+      lib_core.info(`Failed to check if issue is first issue: ${error}`);
+      return false;
+    }
+  }
+}
+
+;// CONCATENATED MODULE: ./src/issues.js
+const issues_core = __nccwpck_require__(2186);
+const issues_github = __nccwpck_require__(5438);
+
+
+
+const [issues_owner, issues_repo] = process.env.GITHUB_REPOSITORY.split("/");
+
+async function issues_run() {
+  // Bail if not a on issues event.
+  if ("issues" !== issues_github.context.eventName) {
+    issues_core.info("Skipping operations on issues event");
+    return;
+  }
+
+  // Welcome new Users.
+  try {
+    const welcomeMessage = new WelcomeMessage(issues_owner, issues_repo);
+    await welcomeMessage.run();
+  } catch (error) {
+    const errorMessage = error.message || "Unknown error";
+    issues_core.setFailed(errorMessage);
+  }
+}
+
 ;// CONCATENATED MODULE: ./index.js
 const index_core = __nccwpck_require__(2186);
 const index_github = __nccwpck_require__(5438);
+
 
 
 
@@ -37257,12 +37454,17 @@ async function index_run() {
 
     switch (eventName) {
       case "push": {
-        run();
+        await run();
         break;
       }
 
       case "pull_request": {
-        pull_request_run();
+        await pull_request_run();
+        break;
+      }
+
+      case "issues": {
+        await issues_run();
         break;
       }
 

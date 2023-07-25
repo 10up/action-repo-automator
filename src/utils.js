@@ -24,6 +24,14 @@ export function getInputs(pullRequest = {}) {
       ? false
       : core.getInput("comment-template") ||
         "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?";
+  const issueWelcomeMessage =
+    core.getInput("issue-welcome-message") === "false"
+      ? false
+      : core.getInput("issue-welcome-message") || false;
+  const prWelcomeMessage =
+    core.getInput("pr-welcome-message") === "false"
+      ? false
+      : core.getInput("pr-welcome-message") || false;
 
   const authorLogin = pullRequest?.user?.login;
   const reviewers = core.getMultilineInput("reviewers");
@@ -83,10 +91,12 @@ export function getInputs(pullRequest = {}) {
     commentTemplate,
     conflictLabel,
     conflictComment,
+    issueWelcomeMessage,
     failLabel,
     maxRetries,
     passLabel,
     prReviewers,
+    prWelcomeMessage,
     waitMS,
   };
 }

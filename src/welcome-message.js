@@ -23,10 +23,25 @@ export default class WelcomeMessage {
       return;
     }
 
-    const isPR = !!context.payload.pull_request;
-    const isIssue = !!context.payload.issue;
+    const isPR =
+      !!context.payload.pull_request && context.eventName === "pull_request";
+    const isIssue = !!context.payload.issue && context.eventName === "issues";
+    const { issueWelcomeMessage, prWelcomeMessage } = this.inputs;
     if (!isPR && !isIssue) {
       core.info("Not a pull request or Issue! Skipping...");
+      return;
+    }
+
+    console.log("isPR", isPR);
+    console.log("isIssue", isIssue);
+
+    if (isIssue && !issueWelcomeMessage) {
+      core.info("Issue welcome message is not provided! Skipping...");
+      return;
+    }
+
+    if (isPR && !prWelcomeMessage) {
+      core.info("PR welcome message is not provided! Skipping...");
       return;
     }
 
@@ -52,6 +67,10 @@ export default class WelcomeMessage {
 
     // Add welcome message
     core.info("Adding welcome message...");
+    const welcomeMessage = isIssue ? issueWelcomeMessage : prWelcomeMessage;
+    const comment = welcomeMessage.replace("{author}", `@${author}`);
+
+    await this.gh.addComment(number, comment);
   }
 
   /**
