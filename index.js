@@ -3,6 +3,7 @@ const github = require("@actions/github");
 
 import { run as runPush } from "./src/push";
 import { run as runPullRequest } from "./src/pull-request";
+import { run as runIssues } from "./src/issues";
 
 async function run() {
   try {
@@ -11,12 +12,17 @@ async function run() {
 
     switch (eventName) {
       case "push": {
-        runPush();
+        await runPush();
         break;
       }
 
       case "pull_request": {
-        runPullRequest();
+        await runPullRequest();
+        break;
+      }
+
+      case "issues": {
+        await runIssues();
         break;
       }
 

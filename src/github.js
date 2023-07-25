@@ -600,4 +600,14 @@ export default class GitHub {
     });
     return response?.repository?.pullRequest;
   }
+
+  /**
+   * Run GraphQL query.
+   * @param {string} query
+   * @param {object} variables
+   * @returns {object} response
+   */
+  async graphql(query, variables) {
+    return this.octokit.graphql(query, variables);
+  }
 }
