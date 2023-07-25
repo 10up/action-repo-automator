@@ -4,10 +4,9 @@ const { Octokit } = require("@octokit/action");
 const { versionCompare } = require("./utils");
 
 export default class GitHub {
-  constructor({ owner, repo, issueNumber }) {
+  constructor({ owner, repo }) {
     this.owner = owner;
     this.repo = repo;
-    this.issueNumber = issueNumber;
     this.octokit = new Octokit();
   }
 
@@ -17,7 +16,7 @@ export default class GitHub {
    * @param {object} prAuthor
    * @returns void
    */
-  async assignPR(prAuthor) {
+  async assignPR(prNumber, prAuthor) {
     try {
       if ("User" !== prAuthor.type) {
         core.info(
@@ -30,7 +29,7 @@ export default class GitHub {
       let addAssigneesResponse = await this.octokit.issues.addAssignees({
         owner: this.owner,
         repo: this.repo,
-        issue_number: this.issueNumber,
+        issue_number: prNumber,
         assignees: [prAuthor.login],
       });
       core.info(
@@ -46,7 +45,7 @@ export default class GitHub {
    *
    * @param {string} name
    */
-  async addLabel(name) {
+  async addLabel(prNumber, name) {
     try {
       if (!name) {
         return;
@@ -55,11 +54,12 @@ export default class GitHub {
       let addLabelResponse = await this.octokit.issues.addLabels({
         owner: this.owner,
         repo: this.repo,
-        issue_number: this.issueNumber,
+        issue_number: prNumber,
         labels: [name],
       });
       core.info(`Added label (${name}) to PR - ${addLabelResponse.status}`);
     } catch (error) {
+      core.error(error);
       core.info(`Failed to add label (${name}) to PR: ${error}`);
     }
   }
@@ -71,7 +71,7 @@ export default class GitHub {
    * @param {string} name
    * @returns void
    */
-  async removeLabel(labels, name) {
+  async removeLabel(prNumber, labels, name) {
     try {
       if (
         !name ||
@@ -86,7 +86,7 @@ export default class GitHub {
       let removeLabelResponse = await this.octokit.issues.removeLabel({
         owner: this.owner,
         repo: this.repo,
-        issue_number: this.issueNumber,
+        issue_number: prNumber,
         name: name,
       });
       core.info(`Removed label - ${removeLabelResponse.status}`);
@@ -101,7 +101,7 @@ export default class GitHub {
    * @param {string} message
    * @returns void
    */
-  async addComment(message) {
+  async addComment(prNumber, message) {
     try {
       if (!message) {
         return;
@@ -110,7 +110,7 @@ export default class GitHub {
       const { data: comments } = await this.octokit.issues.listComments({
         owner: this.owner,
         repo: this.repo,
-        issue_number: this.issueNumber,
+        issue_number: prNumber,
       });
       const isExist = comments.some(({ user, body }) => {
         // Check comments of Bot user only.
@@ -133,7 +133,7 @@ export default class GitHub {
       let addCommentResponse = await this.octokit.issues.createComment({
         owner: this.owner,
         repo: this.repo,
-        issue_number: this.issueNumber,
+        issue_number: prNumber,
         body: message,
       });
       core.info(`Comment Added - ${addCommentResponse.status}`);
@@ -143,11 +143,36 @@ export default class GitHub {
   }
 
   /**
+   * Remove comment from PR/Issue.
+   *
+   * @param {string} commentId Comment ID to remove.
+   * @returns
+   */
+  async removeComment(commentId) {
+    try {
+      if (!commentId) {
+        return;
+      }
+
+      core.info("Removing comment...");
+      let removeCommentResponse = await this.octokit.issues.deleteComment({
+        owner: this.owner,
+        repo: this.repo,
+        comment_id: commentId,
+      });
+      core.info(`Comment Removed - ${removeCommentResponse.status}`);
+    } catch (error) {
+      core.error(error);
+      core.info(`Failed to remove comment: ${error}`);
+    }
+  }
+
+  /**
    * Request review on PR.
    *
    * @param {string[]|boolean} prReviewers
    */
-  async requestPRReview(prReviewers) {
+  async requestPRReview(prNumber, prReviewers) {
     try {
       if (!prReviewers) {
         return;
@@ -177,7 +202,7 @@ export default class GitHub {
       let requestReviewResponse = await this.octokit.pulls.requestReviewers({
         owner: this.owner,
         repo: this.repo,
-        pull_number: this.issueNumber,
+        pull_number: prNumber,
         ...reviewers,
       });
       core.info(`Review Requested - ${requestReviewResponse.status}`);
@@ -191,7 +216,7 @@ export default class GitHub {
    *
    * @param {string[]|boolean} prReviewers
    */
-  async removePRReviewer(prReviewers, requestedReviewers) {
+  async removePRReviewer(prNumber, prReviewers, requestedReviewers) {
     try {
       if (!prReviewers) {
         return;
@@ -234,7 +259,7 @@ export default class GitHub {
         await this.octokit.pulls.removeRequestedReviewers({
           owner: this.owner,
           repo: this.repo,
-          pull_number: this.issueNumber,
+          pull_number: prNumber,
           ...reviewers,
         });
       core.info(`Reviewer Removed - ${removeReviewerResponse.status}`);
@@ -249,7 +274,7 @@ export default class GitHub {
    * @param {object} prAuthor
    * @returns void
    */
-  async assignIssues(prAuthor) {
+  async assignIssues(prNumber, prAuthor) {
     try {
       if ("User" !== prAuthor.type) {
         core.info(
@@ -259,7 +284,7 @@ export default class GitHub {
       }
 
       // Get Issues connected to PR.
-      const issues = await this.getClosingIssues();
+      const issues = await this.getClosingIssues(prNumber);
       if (!issues.length) {
         core.info(`No issues connected to PR.`);
         return;
@@ -286,10 +311,10 @@ export default class GitHub {
   /**
    * Add Milestone to PR
    */
-  async addMilestone() {
+  async addMilestone(prNumber) {
     try {
       core.info("Adding milestone to PR...");
-      const closingIssues = await this.getClosingIssues();
+      const closingIssues = await this.getClosingIssues(prNumber);
       core.info(
         `Closing Issues for PR - ${JSON.stringify(closingIssues, null, 2)}`
       );
@@ -322,7 +347,7 @@ export default class GitHub {
         const addMilestoneResponse = await this.octokit.issues.update({
           owner: this.owner,
           repo: this.repo,
-          issue_number: this.issueNumber,
+          issue_number: prNumber,
           milestone: milestone.number,
         });
         core.info(`Milestone Added - ${addMilestoneResponse.status}`);
@@ -337,7 +362,7 @@ export default class GitHub {
    *
    * @returns array of issues
    */
-  async getClosingIssues() {
+  async getClosingIssues(prNumber) {
     const query = `query getClosingIssues($owner: String!, $repo: String!, $prNumber:  Int!) { 
       repository(owner:$owner, name: $repo) {
         pullRequest(number: $prNumber) {
@@ -360,7 +385,7 @@ export default class GitHub {
 
     const issuesResponse = await this.octokit.graphql(query, {
       headers: {},
-      prNumber: this.issueNumber,
+      prNumber,
       owner: this.owner,
       repo: this.repo,
     });
@@ -436,5 +461,143 @@ export default class GitHub {
     // Current version of plugin.
     const { version } = JSON.parse(Buffer.from(content, encoding).toString());
     return version;
+  }
+
+  /**
+   * Get all OPEN pull requests of repo.
+   *
+   * @returns {array} array of pull requests
+   */
+  async getAllPullRequests() {
+    let cursor = null;
+    let hasNextPage = true;
+    const pullRequests = [];
+
+    while (hasNextPage) {
+      try {
+        core.info(`Getting pull requests page ${cursor}`);
+        core.info(`Has NextPage: ${hasNextPage}`);
+
+        const response = await this.getPullRequestPages(cursor);
+
+        const {
+          errors,
+          repository: {
+            pullRequests: { nodes: prs, pageInfo },
+          },
+        } = response;
+
+        if (errors) {
+          core.info(errors);
+          core.info("Unable to get pull requests");
+          let errorMessage = "Unable to get pull requests";
+          if (errors.length > 0 && errors[0].message) {
+            errorMessage = errors[0].message;
+          }
+          throw new Error(`Unable to get pull requests: ${errorMessage}`);
+        }
+
+        if (prs.length > 0) {
+          core.info(`Found ${prs.length} pull requests`);
+          pullRequests.push(...prs);
+        }
+        cursor = pageInfo.endCursor;
+        hasNextPage = pageInfo.hasNextPage;
+      } catch (error) {
+        core.info(`Failed to get pull requests: ${error}`);
+        throw new Error(`Failed to get pull requests: ${error}`);
+      }
+    }
+
+    return pullRequests;
+  }
+
+  /**
+   * Get pull requests in pages.
+   *
+   * @param {string}  cursor  cursor for pagination
+   * @returns {array} array of pull requests
+   */
+  async getPullRequestPages(cursor = null) {
+    const query = `query ($owner: String!, $repo: String!, $after: String) {
+        repository(owner: $owner, name: $repo) {
+          pullRequests(first: 100, states: OPEN, after: $after) {
+            nodes {
+              id
+              number
+              mergeable
+              locked
+              author {
+                login
+              }
+              comments(last: 100) {
+                nodes {
+                  id
+                  body
+                  databaseId
+                }
+              }
+              labels(last: 100) {
+                nodes {
+                  id
+                  name
+                }
+              }
+            }
+            pageInfo {
+              endCursor
+              hasNextPage
+            }
+          }
+        }
+      }`;
+
+    return this.octokit.graphql(query, {
+      owner: this.owner,
+      repo: this.repo,
+      after: cursor,
+    });
+  }
+
+  /**
+   * Get pull request by number.
+   *
+   * @param {number} prNumber PR number
+   * @returns {object} pull request
+   */
+  async getPullRequest(prNumber) {
+    const query = `query ($owner: String!, $repo: String!, $prNumber: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $prNumber) {
+          id
+          number
+          mergeable
+          locked
+          author {
+            login
+          }
+          comments(last: 100) {
+            nodes {
+              id
+              body
+              databaseId
+            }
+          }
+          labels(last: 100) {
+            nodes {
+              id
+              name
+            }
+          }
+        }
+      }
+    }`;
+
+    const response = await this.octokit.graphql(query, {
+      owner: this.owner,
+      repo: this.repo,
+      prNumber: Number(prNumber),
+    });
+    return response?.repository?.pullRequest;
   }
 }

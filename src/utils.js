@@ -6,7 +6,7 @@ const core = require("@actions/core");
  * @param {object} pullRequest Pull request payload
  * @returns string
  */
-export function getInputs(pullRequest) {
+export function getInputs(pullRequest = {}) {
   const assignIssues =
     core.getInput("assign-issues") === "false" ? false : true;
   const assignPullRequest =
@@ -46,6 +46,19 @@ export function getInputs(pullRequest) {
   const addMilestone =
     core.getInput("add-milestone") === "false" ? false : true;
 
+  // PR conflict inputs
+  const conflictLabel =
+    core.getInput("conflict-label") === "false"
+      ? false
+      : core.getInput("conflict-label") || "needs:refresh";
+  const conflictComment =
+    core.getInput("conflict-comment") === "false"
+      ? false
+      : core.getInput("conflict-comment") ||
+        "{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?";
+  const waitMS = core.getInput("wait-ms") || 15000;
+  const maxRetries = core.getInput("max-retries") || 5;
+
   // Add debug log of some information.
   core.debug(`Assign Issues: ${assignIssues} (${typeof assignIssues})`);
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
@@ -56,15 +69,25 @@ export function getInputs(pullRequest) {
   );
   core.debug(`PR reviewers: ${prReviewers} (${typeof prReviewers})`);
   core.debug(`Add Milestone: ${addMilestone} (${typeof addMilestone})`);
+  core.debug(`Conflict Label: ${conflictLabel} (${typeof conflictLabel})`);
+  core.debug(
+    `Conflict Comment: ${conflictComment} (${typeof conflictComment})`
+  );
+  core.debug(`Wait Milliseconds: ${waitMS} (${typeof waitMS})`);
+  core.debug(`Max Retries: ${maxRetries} (${typeof maxRetries})`);
 
   return {
     assignIssues,
     addMilestone,
     assignPullRequest,
     commentTemplate,
+    conflictLabel,
+    conflictComment,
     failLabel,
+    maxRetries,
     passLabel,
     prReviewers,
+    waitMS,
   };
 }
 
@@ -146,4 +169,8 @@ export function versionCompare(a, b) {
     sensitivity: "case",
     caseFirst: "upper",
   });
+}
+
+export function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -35841,7 +35841,8 @@ __nccwpck_require__.r(__webpack_exports__);
 /* harmony export */   "getCredits": () => (/* binding */ getCredits),
 /* harmony export */   "getDescription": () => (/* binding */ getDescription),
 /* harmony export */   "getInputs": () => (/* binding */ getInputs),
-/* harmony export */   "versionCompare": () => (/* binding */ versionCompare)
+/* harmony export */   "versionCompare": () => (/* binding */ versionCompare),
+/* harmony export */   "wait": () => (/* binding */ wait)
 /* harmony export */ });
 const core = __nccwpck_require__(2186);
 
@@ -35851,7 +35852,7 @@ const core = __nccwpck_require__(2186);
  * @param {object} pullRequest Pull request payload
  * @returns string
  */
-function getInputs(pullRequest) {
+function getInputs(pullRequest = {}) {
   const assignIssues =
     core.getInput("assign-issues") === "false" ? false : true;
   const assignPullRequest =
@@ -35891,6 +35892,19 @@ function getInputs(pullRequest) {
   const addMilestone =
     core.getInput("add-milestone") === "false" ? false : true;
 
+  // PR conflict inputs
+  const conflictLabel =
+    core.getInput("conflict-label") === "false"
+      ? false
+      : core.getInput("conflict-label") || "needs:refresh";
+  const conflictComment =
+    core.getInput("conflict-comment") === "false"
+      ? false
+      : core.getInput("conflict-comment") ||
+        "{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?";
+  const waitMS = core.getInput("wait-ms") || 15000;
+  const maxRetries = core.getInput("max-retries") || 5;
+
   // Add debug log of some information.
   core.debug(`Assign Issues: ${assignIssues} (${typeof assignIssues})`);
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
@@ -35901,15 +35915,25 @@ function getInputs(pullRequest) {
   );
   core.debug(`PR reviewers: ${prReviewers} (${typeof prReviewers})`);
   core.debug(`Add Milestone: ${addMilestone} (${typeof addMilestone})`);
+  core.debug(`Conflict Label: ${conflictLabel} (${typeof conflictLabel})`);
+  core.debug(
+    `Conflict Comment: ${conflictComment} (${typeof conflictComment})`
+  );
+  core.debug(`Wait Milliseconds: ${waitMS} (${typeof waitMS})`);
+  core.debug(`Max Retries: ${maxRetries} (${typeof maxRetries})`);
 
   return {
     assignIssues,
     addMilestone,
     assignPullRequest,
     commentTemplate,
+    conflictLabel,
+    conflictComment,
     failLabel,
+    maxRetries,
     passLabel,
     prReviewers,
+    waitMS,
   };
 }
 
@@ -35991,6 +36015,10 @@ function versionCompare(a, b) {
     sensitivity: "case",
     caseFirst: "upper",
   });
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 
@@ -36292,10 +36320,9 @@ const { Octokit } = __nccwpck_require__(1231);
 const { versionCompare } = __nccwpck_require__(1608);
 
 class GitHub {
-  constructor({ owner, repo, issueNumber }) {
+  constructor({ owner, repo }) {
     this.owner = owner;
     this.repo = repo;
-    this.issueNumber = issueNumber;
     this.octokit = new Octokit();
   }
 
@@ -36305,7 +36332,7 @@ class GitHub {
    * @param {object} prAuthor
    * @returns void
    */
-  async assignPR(prAuthor) {
+  async assignPR(prNumber, prAuthor) {
     try {
       if ("User" !== prAuthor.type) {
         core.info(
@@ -36318,7 +36345,7 @@ class GitHub {
       let addAssigneesResponse = await this.octokit.issues.addAssignees({
         owner: this.owner,
         repo: this.repo,
-        issue_number: this.issueNumber,
+        issue_number: prNumber,
         assignees: [prAuthor.login],
       });
       core.info(
@@ -36334,7 +36361,7 @@ class GitHub {
    *
    * @param {string} name
    */
-  async addLabel(name) {
+  async addLabel(prNumber, name) {
     try {
       if (!name) {
         return;
@@ -36343,11 +36370,12 @@ class GitHub {
       let addLabelResponse = await this.octokit.issues.addLabels({
         owner: this.owner,
         repo: this.repo,
-        issue_number: this.issueNumber,
+        issue_number: prNumber,
         labels: [name],
       });
       core.info(`Added label (${name}) to PR - ${addLabelResponse.status}`);
     } catch (error) {
+      core.error(error);
       core.info(`Failed to add label (${name}) to PR: ${error}`);
     }
   }
@@ -36359,7 +36387,7 @@ class GitHub {
    * @param {string} name
    * @returns void
    */
-  async removeLabel(labels, name) {
+  async removeLabel(prNumber, labels, name) {
     try {
       if (
         !name ||
@@ -36374,7 +36402,7 @@ class GitHub {
       let removeLabelResponse = await this.octokit.issues.removeLabel({
         owner: this.owner,
         repo: this.repo,
-        issue_number: this.issueNumber,
+        issue_number: prNumber,
         name: name,
       });
       core.info(`Removed label - ${removeLabelResponse.status}`);
@@ -36389,7 +36417,7 @@ class GitHub {
    * @param {string} message
    * @returns void
    */
-  async addComment(message) {
+  async addComment(prNumber, message) {
     try {
       if (!message) {
         return;
@@ -36398,7 +36426,7 @@ class GitHub {
       const { data: comments } = await this.octokit.issues.listComments({
         owner: this.owner,
         repo: this.repo,
-        issue_number: this.issueNumber,
+        issue_number: prNumber,
       });
       const isExist = comments.some(({ user, body }) => {
         // Check comments of Bot user only.
@@ -36421,7 +36449,7 @@ class GitHub {
       let addCommentResponse = await this.octokit.issues.createComment({
         owner: this.owner,
         repo: this.repo,
-        issue_number: this.issueNumber,
+        issue_number: prNumber,
         body: message,
       });
       core.info(`Comment Added - ${addCommentResponse.status}`);
@@ -36431,11 +36459,36 @@ class GitHub {
   }
 
   /**
+   * Remove comment from PR/Issue.
+   *
+   * @param {string} commentId Comment ID to remove.
+   * @returns
+   */
+  async removeComment(commentId) {
+    try {
+      if (!commentId) {
+        return;
+      }
+
+      core.info("Removing comment...");
+      let removeCommentResponse = await this.octokit.issues.deleteComment({
+        owner: this.owner,
+        repo: this.repo,
+        comment_id: commentId,
+      });
+      core.info(`Comment Removed - ${removeCommentResponse.status}`);
+    } catch (error) {
+      core.error(error);
+      core.info(`Failed to remove comment: ${error}`);
+    }
+  }
+
+  /**
    * Request review on PR.
    *
    * @param {string[]|boolean} prReviewers
    */
-  async requestPRReview(prReviewers) {
+  async requestPRReview(prNumber, prReviewers) {
     try {
       if (!prReviewers) {
         return;
@@ -36465,7 +36518,7 @@ class GitHub {
       let requestReviewResponse = await this.octokit.pulls.requestReviewers({
         owner: this.owner,
         repo: this.repo,
-        pull_number: this.issueNumber,
+        pull_number: prNumber,
         ...reviewers,
       });
       core.info(`Review Requested - ${requestReviewResponse.status}`);
@@ -36479,7 +36532,7 @@ class GitHub {
    *
    * @param {string[]|boolean} prReviewers
    */
-  async removePRReviewer(prReviewers, requestedReviewers) {
+  async removePRReviewer(prNumber, prReviewers, requestedReviewers) {
     try {
       if (!prReviewers) {
         return;
@@ -36522,7 +36575,7 @@ class GitHub {
         await this.octokit.pulls.removeRequestedReviewers({
           owner: this.owner,
           repo: this.repo,
-          pull_number: this.issueNumber,
+          pull_number: prNumber,
           ...reviewers,
         });
       core.info(`Reviewer Removed - ${removeReviewerResponse.status}`);
@@ -36537,7 +36590,7 @@ class GitHub {
    * @param {object} prAuthor
    * @returns void
    */
-  async assignIssues(prAuthor) {
+  async assignIssues(prNumber, prAuthor) {
     try {
       if ("User" !== prAuthor.type) {
         core.info(
@@ -36547,7 +36600,7 @@ class GitHub {
       }
 
       // Get Issues connected to PR.
-      const issues = await this.getClosingIssues();
+      const issues = await this.getClosingIssues(prNumber);
       if (!issues.length) {
         core.info(`No issues connected to PR.`);
         return;
@@ -36574,10 +36627,10 @@ class GitHub {
   /**
    * Add Milestone to PR
    */
-  async addMilestone() {
+  async addMilestone(prNumber) {
     try {
       core.info("Adding milestone to PR...");
-      const closingIssues = await this.getClosingIssues();
+      const closingIssues = await this.getClosingIssues(prNumber);
       core.info(
         `Closing Issues for PR - ${JSON.stringify(closingIssues, null, 2)}`
       );
@@ -36610,7 +36663,7 @@ class GitHub {
         const addMilestoneResponse = await this.octokit.issues.update({
           owner: this.owner,
           repo: this.repo,
-          issue_number: this.issueNumber,
+          issue_number: prNumber,
           milestone: milestone.number,
         });
         core.info(`Milestone Added - ${addMilestoneResponse.status}`);
@@ -36625,7 +36678,7 @@ class GitHub {
    *
    * @returns array of issues
    */
-  async getClosingIssues() {
+  async getClosingIssues(prNumber) {
     const query = `query getClosingIssues($owner: String!, $repo: String!, $prNumber:  Int!) { 
       repository(owner:$owner, name: $repo) {
         pullRequest(number: $prNumber) {
@@ -36648,7 +36701,7 @@ class GitHub {
 
     const issuesResponse = await this.octokit.graphql(query, {
       headers: {},
-      prNumber: this.issueNumber,
+      prNumber,
       owner: this.owner,
       repo: this.repo,
     });
@@ -36725,31 +36778,353 @@ class GitHub {
     const { version } = JSON.parse(Buffer.from(content, encoding).toString());
     return version;
   }
+
+  /**
+   * Get all OPEN pull requests of repo.
+   *
+   * @returns {array} array of pull requests
+   */
+  async getAllPullRequests() {
+    let cursor = null;
+    let hasNextPage = true;
+    const pullRequests = [];
+
+    while (hasNextPage) {
+      try {
+        core.info(`Getting pull requests page ${cursor}`);
+        core.info(`Has NextPage: ${hasNextPage}`);
+
+        const response = await this.getPullRequestPages(cursor);
+
+        const {
+          errors,
+          repository: {
+            pullRequests: { nodes: prs, pageInfo },
+          },
+        } = response;
+
+        if (errors) {
+          core.info(errors);
+          core.info("Unable to get pull requests");
+          let errorMessage = "Unable to get pull requests";
+          if (errors.length > 0 && errors[0].message) {
+            errorMessage = errors[0].message;
+          }
+          throw new Error(`Unable to get pull requests: ${errorMessage}`);
+        }
+
+        if (prs.length > 0) {
+          core.info(`Found ${prs.length} pull requests`);
+          pullRequests.push(...prs);
+        }
+        cursor = pageInfo.endCursor;
+        hasNextPage = pageInfo.hasNextPage;
+      } catch (error) {
+        core.info(`Failed to get pull requests: ${error}`);
+        throw new Error(`Failed to get pull requests: ${error}`);
+      }
+    }
+
+    return pullRequests;
+  }
+
+  /**
+   * Get pull requests in pages.
+   *
+   * @param {string}  cursor  cursor for pagination
+   * @returns {array} array of pull requests
+   */
+  async getPullRequestPages(cursor = null) {
+    const query = `query ($owner: String!, $repo: String!, $after: String) {
+        repository(owner: $owner, name: $repo) {
+          pullRequests(first: 100, states: OPEN, after: $after) {
+            nodes {
+              id
+              number
+              mergeable
+              locked
+              author {
+                login
+              }
+              comments(last: 100) {
+                nodes {
+                  id
+                  body
+                  databaseId
+                }
+              }
+              labels(last: 100) {
+                nodes {
+                  id
+                  name
+                }
+              }
+            }
+            pageInfo {
+              endCursor
+              hasNextPage
+            }
+          }
+        }
+      }`;
+
+    return this.octokit.graphql(query, {
+      owner: this.owner,
+      repo: this.repo,
+      after: cursor,
+    });
+  }
+
+  /**
+   * Get pull request by number.
+   *
+   * @param {number} prNumber PR number
+   * @returns {object} pull request
+   */
+  async getPullRequest(prNumber) {
+    const query = `query ($owner: String!, $repo: String!, $prNumber: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $prNumber) {
+          id
+          number
+          mergeable
+          locked
+          author {
+            login
+          }
+          comments(last: 100) {
+            nodes {
+              id
+              body
+              databaseId
+            }
+          }
+          labels(last: 100) {
+            nodes {
+              id
+              name
+            }
+          }
+        }
+      }
+    }`;
+
+    const response = await this.octokit.graphql(query, {
+      owner: this.owner,
+      repo: this.repo,
+      prNumber: Number(prNumber),
+    });
+    return response?.repository?.pullRequest;
+  }
 }
 
-;// CONCATENATED MODULE: ./index.js
-const index_core = __nccwpck_require__(2186);
+;// CONCATENATED MODULE: ./src/pr-conflict.js
+const pr_conflict_core = __nccwpck_require__(2186);
+
+
+const { wait, getInputs } = __nccwpck_require__(1608);
+
+class PRConflict {
+  constructor(owner, repo) {
+    this.repo = repo;
+    this.owner = owner;
+    this.inputs = getInputs();
+    this.gh = new GitHub({
+      owner: this.owner,
+      repo: this.repo,
+    });
+  }
+
+  async run(prNumber = null) {
+    let tries = 0;
+    const { waitMS, maxRetries, conflictLabel, conflictComment } = this.inputs;
+
+    if (!conflictLabel && !conflictComment) {
+      pr_conflict_core.info("Skipping PR conflict operations");
+      return;
+    }
+
+    // Only process a single PR if a PR number is passed in.
+    if (prNumber) {
+      let pullRequest;
+      do {
+        if (pullRequest) {
+          tries++;
+          pr_conflict_core.info(`Try: ${tries}`);
+          await wait(Number(waitMS));
+        }
+        pullRequest = await this.gh.getPullRequest(prNumber);
+        console.log(pullRequest);
+      } while (
+        tries < Number(maxRetries) &&
+        pullRequest.mergeable === "UNKNOWN"
+      );
+
+      if (pullRequest.mergeable === "UNKNOWN") {
+        pr_conflict_core.error(`Unable to determine mergeable state for PR: ${prNumber}`);
+        return;
+      }
+
+      await this.processPullRequest(pullRequest);
+      return;
+    }
+
+    let pullRequests;
+    let unknownMergeablePRs;
+
+    do {
+      if (pullRequests) {
+        tries++;
+        pr_conflict_core.info(`Try: ${tries}`);
+        pr_conflict_core.info(
+          `${unknownMergeablePRs?.length || ""} PRs has unknown mergeable state`
+        );
+        await wait(Number(waitMS));
+      }
+      pullRequests = await this.gh.getAllPullRequests();
+      unknownMergeablePRs = pullRequests.filter(
+        (pr) => pr.mergeable === "UNKNOWN"
+      );
+    } while (tries < Number(maxRetries) && unknownMergeablePRs.length > 0);
+
+    if (unknownMergeablePRs.length > 0) {
+      // Stop processing, Mark Job as failed.
+      pr_conflict_core.error(
+        `Unable to determine mergeable state for PRs: ${unknownMergeablePRs
+          .map((pr) => pr.number)
+          .join(", ")}`
+      );
+      pr_conflict_core.setFailed("Unable to determine mergeable state for PRs");
+      return;
+    }
+
+    for (const pullRequest of pullRequests) {
+      await this.processPullRequest(pullRequest);
+    }
+  }
+
+  async processPullRequest(pullRequest) {
+    const { number, mergeable, locked, author, comments, labels } = pullRequest;
+
+    const { conflictLabel, conflictComment } = this.inputs;
+    const commentBody = conflictComment
+      ? conflictComment.replace("{author}", `@${author.login}`)
+      : "";
+
+    if (
+      locked ||
+      mergeable === "UNKNOWN" ||
+      author.login === "dependabot[bot]"
+    ) {
+      // Skip locked PRs, PRs with unknown mergeable state, and dependabot PRs
+      return;
+    }
+
+    switch (mergeable) {
+      case "CONFLICTING": {
+        // Check if PR has conflict label. If not, add conflict label
+        if (
+          conflictLabel &&
+          !labels?.nodes?.some((label) => label.name === conflictLabel)
+        ) {
+          await this.gh.addLabel(number, conflictLabel);
+        }
+
+        // Check if PR has conflict comment. If not, add conflict comment
+        if (
+          commentBody &&
+          !comments?.nodes?.some((comment) => comment.body === commentBody)
+        ) {
+          await this.gh.addComment(number, commentBody);
+        }
+        break;
+      }
+
+      case "MERGEABLE": {
+        // Check if PR has conflict label. If yes, remove conflict label
+        if (
+          conflictLabel &&
+          labels?.nodes?.some((label) => label.name === conflictLabel)
+        ) {
+          await this.gh.removeLabel(number, labels.nodes, conflictLabel);
+        }
+
+        // Check if PR has conflict comment. If yes, remove conflict comment
+        if (
+          commentBody &&
+          comments?.nodes?.some((comment) => comment.body === commentBody)
+        ) {
+          const commentIds = comments?.nodes
+            ?.filter((comment) => comment.body === commentBody)
+            .map((comment) => comment.databaseId);
+          if (commentIds.length > 0) {
+            await this.gh.removeComment(commentIds[0]);
+          }
+        }
+        break;
+      }
+
+      default:
+        break;
+    }
+  }
+}
+
+;// CONCATENATED MODULE: ./src/push.js
+const push_core = __nccwpck_require__(2186);
 const github = __nccwpck_require__(5438);
+
+
+
+const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
+
+async function run() {
+  // Bail if not a on push event.
+  if ("push" !== github.context.eventName) {
+    push_core.info("Skipping operations on push event");
+    return;
+  }
+
+  // Handle PR Conflicts.
+  try {
+    const conflictFinder = new PRConflict(owner, repo);
+    await conflictFinder.run();
+  } catch (error) {
+    const errorMessage = error.message || "Unknown error";
+    push_core.setFailed(errorMessage);
+  }
+}
+
+;// CONCATENATED MODULE: ./src/pull-request.js
+const pull_request_core = __nccwpck_require__(2186);
+const pull_request_github = __nccwpck_require__(5438);
+
+
 
 
 const {
   getChangelog,
   getCredits,
   getDescription,
-  getInputs,
+  getInputs: pull_request_getInputs,
 } = __nccwpck_require__(1608);
 
-const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
-const issueNumber = github.context.issue.number;
+const [pull_request_owner, pull_request_repo] = process.env.GITHUB_REPOSITORY.split("/");
 
-async function run() {
+async function pull_request_run() {
+  // Bail if not a pull request.
+  if ("pull_request" !== pull_request_github.context.eventName) {
+      pull_request_core.info("Skipping operations on pull_request event");
+      return;
+  }
+
   try {
     const gh = new GitHub({
-      owner,
-      repo,
-      issueNumber,
+      owner: pull_request_owner,
+      repo: pull_request_repo,
     });
-    const pullRequest = github.context.payload?.pull_request || {};
+    const pullRequest = pull_request_github.context.payload?.pull_request || {};
+    const issueNumber = pull_request_github.context.issue.number;
     const {
       labels,
       requested_reviewers: requestedReviewers,
@@ -36767,15 +37142,15 @@ async function run() {
       passLabel,
       commentTemplate,
       prReviewers,
-    } = getInputs(pullRequest);
-    index_core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
-    index_core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
+    } = pull_request_getInputs(pullRequest);
+    pull_request_core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
+    pull_request_core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
 
     // Handle Bot User
-    if ("Bot" === author.type) {
+    if ("Bot" === author?.type) {
       // Skip validation against bot user.
-      await gh.addLabel(passLabel);
-      await gh.requestPRReview(prReviewers);
+      await gh.addLabel(issueNumber, passLabel);
+      await gh.requestPRReview(issueNumber, prReviewers);
       return;
     }
 
@@ -36784,29 +37159,33 @@ async function run() {
       (!assignees || !Array.isArray(assignees) || !assignees.length) &&
       assignPullRequest
     ) {
-      index_core.info("PR is unassigned, assigning PR");
-      await gh.assignPR(author);
+      pull_request_core.info("PR is unassigned, assigning PR");
+      await gh.assignPR(issueNumber, author);
     }
 
     // Assign Issues to author
     if (assignIssues) {
-      index_core.info("Assigning issues to PR author");
-      await gh.assignIssues(author);
+      pull_request_core.info("Assigning issues to PR author");
+      await gh.assignIssues(issueNumber, author);
     }
 
     // Add milestone to PR
     if (!milestone && addMilestone) {
-      await gh.addMilestone();
+      await gh.addMilestone(issueNumber);
     }
+
+    // Check for conflicts.
+    const conflictFinder = new PRConflict(pull_request_owner, pull_request_repo);
+    await conflictFinder.run(pullRequest.number);
 
     // Skip Draft PR
     if (isDraft) {
       // Remove labels and review to handle case of switch PR back draft.
-      await gh.removeLabel(labels, failLabel);
-      await gh.removeLabel(labels, passLabel);
-      await gh.removePRReviewer(prReviewers, requestedReviewers);
+      await gh.removeLabel(issueNumber, labels, failLabel);
+      await gh.removeLabel(issueNumber, labels, passLabel);
+      await gh.removePRReviewer(issueNumber, prReviewers, requestedReviewers);
 
-      index_core.info("Skipping DRAFT PR validation!");
+      pull_request_core.info("Skipping DRAFT PR validation!");
       return;
     }
 
@@ -36816,32 +37195,32 @@ async function run() {
     const description = getDescription(pullRequest);
 
     // Debug information.
-    index_core.debug(`Changelog: ${JSON.stringify(changelog)}`);
-    index_core.debug(`Credits: ${JSON.stringify(props)}`);
-    index_core.debug(`Description: ${description}`);
+    pull_request_core.debug(`Changelog: ${JSON.stringify(changelog)}`);
+    pull_request_core.debug(`Credits: ${JSON.stringify(props)}`);
+    pull_request_core.debug(`Description: ${description}`);
 
     if (!changelog.length || !props.length || !description.length) {
       // Remove Pass Label if already there.
-      await gh.removeLabel(labels, passLabel);
+      await gh.removeLabel(issueNumber, labels, passLabel);
 
       // Add Fail Label.
-      await gh.addLabel(failLabel);
+      await gh.addLabel(issueNumber, failLabel);
 
       // Add Comment to for author to fill out the PR template.
       const commentBody = commentTemplate.replace(
         "{author}",
         `@${author.login}`
       );
-      await gh.addComment(commentBody);
+      await gh.addComment(issueNumber, commentBody);
 
       if (!changelog.length) {
-        index_core.setFailed("Please fill out the changelog information");
+        pull_request_core.setFailed("Please fill out the changelog information");
       }
       if (!props.length) {
-        index_core.setFailed("Please fill out the credits information");
+        pull_request_core.setFailed("Please fill out the credits information");
       }
       if (!description.length) {
-        index_core.setFailed(
+        pull_request_core.setFailed(
           "Please add some description about the changes made in PR"
         );
       }
@@ -36852,10 +37231,45 @@ async function run() {
     // 1. Remove fail label
     // 2. Add Pass label
     // 3. Request Review.
-    await gh.removeLabel(labels, failLabel);
-    await gh.addLabel(passLabel);
+    await gh.removeLabel(issueNumber, labels, failLabel);
+    await gh.addLabel(issueNumber, passLabel);
     if (requestedReviewers.length === 0) {
-      await gh.requestPRReview(prReviewers);
+      await gh.requestPRReview(issueNumber, prReviewers);
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      pull_request_core.setFailed(error.message);
+    }
+  }
+}
+
+;// CONCATENATED MODULE: ./index.js
+const index_core = __nccwpck_require__(2186);
+const index_github = __nccwpck_require__(5438);
+
+
+
+
+async function index_run() {
+  try {
+    const eventName = index_github.context.eventName;
+    index_core.debug(`Event Name: ${eventName}`);
+
+    switch (eventName) {
+      case "push": {
+        run();
+        break;
+      }
+
+      case "pull_request": {
+        pull_request_run();
+        break;
+      }
+
+      default: {
+        index_core.info(`Skipping operations on ${eventName} event`);
+        break;
+      }
     }
   } catch (error) {
     if (error instanceof Error) {
@@ -36864,7 +37278,7 @@ async function run() {
   }
 }
 
-run();
+index_run();
 
 })();
 

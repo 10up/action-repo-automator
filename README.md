@@ -5,19 +5,23 @@
 [![Support Level](https://img.shields.io/badge/support-beta-blueviolet.svg)](#support-level) [![Release Version](https://img.shields.io/github/release/10up/action-pr-automator.svg)](https://github.com/10up/action-pr-automator/releases/latest) [![License](https://img.shields.io/github/license/10up/action-pr-automator.svg)](https://github.com/10up/action-pr-automator/blob/develop/LICENSE.md) [![CodeQL](https://github.com/10up/action-pr-automator/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/10up/action-pr-automator/actions/workflows/codeql-analysis.yml)
 
 ## Overview
+
 This GitHub Action Helps with the following operations:
+
 - **Validate PR description:** It validates PR description to make sure it contains description of the change, changelog and credits. Also, you can set custom comment message for PR author to inform them about PR description requirements.
 - **Add Labels:** It helps with adding label to PR when PR validation pass or fail.
 - **Auto-assign Issues:** This feature helps to automatically assign issue with PR assignee when a linked PR is merged.
 - **Auto-assign PR:** It helps with assigning PR to the author.
 - **Auto request review:** It helps with request review from the team or GitHub user given in the configuration.
 - **Add Milestone:** Automatically adds a Milestone to PRs. If the PR is connected to an issue with a milestone, the same milestone will be added to the PR. Otherwise, the next milestone from the available milestones will be assigned, sorted using version comparison.
+- **Auto-label merge conflicts:** Automatically adds a label to PRs with merge conflicts, and once a conflict is resolved, the label is automatically removed.
+- **Auto-comment merge conflicts:** Automatically adds a comment to PRs with merge conflicts to notify the PR author, and once a conflict is resolved, the comment is automatically removed.
 
 ## Configuration
 
 ### Required secrets
 
-* `GITHUB_TOKEN` 
+* `GITHUB_TOKEN`
 
 ### Other optional configurations
 
@@ -28,8 +32,12 @@ This GitHub Action Helps with the following operations:
 | add-milestone | true | Whether to automatically add a Milestone to a PR |
 | fail-label | `needs:feedback` | The label to be added to PR if the pull request doesn't pass the validation |
 | pass-label | `needs:code-review` | The label to be added to PR if the pull request pass the validation |
+| conflict-label | `needs:refresh` | The label to be added to PR if the pull request has conflicts |
 | comment-template | `{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?` | Comment template for adding comment on PR if it doesn't pass the validation |
+| conflict-comment | `{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?` | Comment template for adding comment on PR if it has conflicts |
 | reviewers | `team:open-source-practice` | List of Reviewers to request PR review after passing all validation checks. Add prefix `team:` if you want to request review from the team.
+| wait-ms | `15000` | Time to wait in milliseconds between retries to check PR mergeable status |
+| max-retries | `5` | Maximum number of retries to check PR mergeable status |
 
 ## Example Workflow File
 
@@ -38,10 +46,12 @@ To get started, you will want to copy the contents of the given example into `.g
 ```yml
 name: 'PR Automator'
 on:
+  push:
   pull_request:
     types:
       - opened
       - edited
+      - synchronize
       - converted_to_draft
       - ready_for_review
     branches:
@@ -55,7 +65,10 @@ jobs:
         with:
           fail-label: 'needs:feedback'
           pass-label: 'needs:code-review'
-          reviewer: GITHUB_USERNAME
+          conflict-label: 'needs:refresh'
+          reviewers: |
+            GITHUB_USERNAME
+            GITHUB_USERNAME_2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -80,6 +93,8 @@ env:
 ## Known Caveats/Issues
 
 __Fork-based PRs__ - When creating a pull request from a fork, GitHub limits the permissions of `GITHUB_TOKEN` and other API access tokens. This means that the provided `GITHUB_TOKEN` will not have write access, and the secrets will not be accessible. As a result, some operations (such as adding labels, auto-assigning pull requests, and requesting reviews automatically) will be skipped for pull requests from forked repositories, as these operations require write access to perform successfully.
+
+__Merge Conflicts__ - Sometimes, GitHub does not reliably compute the [`mergeable`](https://docs.github.com/en/graphql/reference/enums#mergeablestate) status, which is essential for this action to detect merge conflicts. When the base branch (like "main") is updated, the mergeable status becomes `UNKNOWN` until it is requested by someone, like this action. GitHub then tries to figure out the status with a background process. This process is usually fast and straightforward, but there's no absolute assurance, and occasional problems on GitHub's end may arise. If you need more time for the Pull Request to be processed, you can adjust the settings for `max-retries` and `wait_ms` to extend the timeout before giving up.
 
 ## Changelog
 
