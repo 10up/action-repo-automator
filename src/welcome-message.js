@@ -82,8 +82,8 @@ export default class WelcomeMessage {
    */
   async isFirstPR(prAuthor, prNumber) {
     try {
-      const query = `query ($query: String!) {
-        search(query: $query, first: 10, type: ISSUE) {
+      const query = `query ($queryString: String!) {
+        search(query: $queryString, first: 10, type: ISSUE) {
           edges {
             node {
               ... on PullRequest {
@@ -95,7 +95,7 @@ export default class WelcomeMessage {
       }`;
 
       const response = await this.gh.graphql(query, {
-        query: `is:pr author:${prAuthor} repo:${this.owner}/${this.repo}`,
+        queryString: `is:pr author:${prAuthor} repo:${this.owner}/${this.repo}`,
       });
 
       const {

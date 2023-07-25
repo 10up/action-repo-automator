@@ -37111,154 +37111,6 @@ async function run() {
   }
 }
 
-;// CONCATENATED MODULE: ./src/pull-request.js
-const pull_request_core = __nccwpck_require__(2186);
-const pull_request_github = __nccwpck_require__(5438);
-
-
-
-
-const {
-  getChangelog,
-  getCredits,
-  getDescription,
-  getInputs: pull_request_getInputs,
-} = __nccwpck_require__(1608);
-
-const [pull_request_owner, pull_request_repo] = process.env.GITHUB_REPOSITORY.split("/");
-
-async function pull_request_run() {
-  // Bail if not a pull request.
-  if ("pull_request" !== pull_request_github.context.eventName) {
-      pull_request_core.info("Skipping operations on pull_request event");
-      return;
-  }
-
-  try {
-    const gh = new GitHub({
-      owner: pull_request_owner,
-      repo: pull_request_repo,
-    });
-    const pullRequest = pull_request_github.context.payload?.pull_request || {};
-    const issueNumber = pull_request_github.context.issue.number;
-    const {
-      labels,
-      requested_reviewers: requestedReviewers,
-      draft: isDraft,
-      assignees,
-      user: author,
-      milestone,
-    } = pullRequest;
-
-    const {
-      assignIssues,
-      addMilestone,
-      assignPullRequest,
-      failLabel,
-      passLabel,
-      commentTemplate,
-      prReviewers,
-    } = pull_request_getInputs(pullRequest);
-    pull_request_core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
-    pull_request_core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
-
-    // Handle Bot User
-    if ("Bot" === author?.type) {
-      // Skip validation against bot user.
-      await gh.addLabel(issueNumber, passLabel);
-      await gh.requestPRReview(issueNumber, prReviewers);
-      return;
-    }
-
-    // Assign PR to author
-    if (
-      (!assignees || !Array.isArray(assignees) || !assignees.length) &&
-      assignPullRequest
-    ) {
-      pull_request_core.info("PR is unassigned, assigning PR");
-      await gh.assignPR(issueNumber, author);
-    }
-
-    // Assign Issues to author
-    if (assignIssues) {
-      pull_request_core.info("Assigning issues to PR author");
-      await gh.assignIssues(issueNumber, author);
-    }
-
-    // Add milestone to PR
-    if (!milestone && addMilestone) {
-      await gh.addMilestone(issueNumber);
-    }
-
-    // Check for conflicts.
-    const conflictFinder = new PRConflict(pull_request_owner, pull_request_repo);
-    await conflictFinder.run(pullRequest.number);
-
-    // Skip Draft PR
-    if (isDraft) {
-      // Remove labels and review to handle case of switch PR back draft.
-      await gh.removeLabel(issueNumber, labels, failLabel);
-      await gh.removeLabel(issueNumber, labels, passLabel);
-      await gh.removePRReviewer(issueNumber, prReviewers, requestedReviewers);
-
-      pull_request_core.info("Skipping DRAFT PR validation!");
-      return;
-    }
-
-    // Start validation.
-    const changelog = getChangelog(pullRequest);
-    const props = getCredits(pullRequest);
-    const description = getDescription(pullRequest);
-
-    // Debug information.
-    pull_request_core.debug(`Changelog: ${JSON.stringify(changelog)}`);
-    pull_request_core.debug(`Credits: ${JSON.stringify(props)}`);
-    pull_request_core.debug(`Description: ${description}`);
-
-    if (!changelog.length || !props.length || !description.length) {
-      // Remove Pass Label if already there.
-      await gh.removeLabel(issueNumber, labels, passLabel);
-
-      // Add Fail Label.
-      await gh.addLabel(issueNumber, failLabel);
-
-      // Add Comment to for author to fill out the PR template.
-      const commentBody = commentTemplate.replace(
-        "{author}",
-        `@${author.login}`
-      );
-      await gh.addComment(issueNumber, commentBody);
-
-      if (!changelog.length) {
-        pull_request_core.setFailed("Please fill out the changelog information");
-      }
-      if (!props.length) {
-        pull_request_core.setFailed("Please fill out the credits information");
-      }
-      if (!description.length) {
-        pull_request_core.setFailed(
-          "Please add some description about the changes made in PR"
-        );
-      }
-      return;
-    }
-
-    // All good to go.
-    // 1. Remove fail label
-    // 2. Add Pass label
-    // 3. Request Review.
-    await gh.removeLabel(issueNumber, labels, failLabel);
-    await gh.addLabel(issueNumber, passLabel);
-    if (requestedReviewers.length === 0) {
-      await gh.requestPRReview(issueNumber, prReviewers);
-    }
-  } catch (error) {
-    if (error instanceof Error) {
-      pull_request_core.setFailed(error.message);
-    }
-  }
-}
-
 // EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
 var lib_core = __nccwpck_require__(2186);
 // EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js
@@ -37348,8 +37200,8 @@ class WelcomeMessage {
    */
   async isFirstPR(prAuthor, prNumber) {
     try {
-      const query = `query ($query: String!) {
-        search(query: $query, first: 10, type: ISSUE) {
+      const query = `query ($queryString: String!) {
+        search(query: $queryString, first: 10, type: ISSUE) {
           edges {
             node {
               ... on PullRequest {
@@ -37361,7 +37213,7 @@ class WelcomeMessage {
       }`;
 
       const response = await this.gh.graphql(query, {
-        query: `is:pr author:${prAuthor} repo:${this.owner}/${this.repo}`,
+        queryString: `is:pr author:${prAuthor} repo:${this.owner}/${this.repo}`,
       });
 
       const {
@@ -37410,6 +37262,159 @@ class WelcomeMessage {
     } catch (error) {
       lib_core.info(`Failed to check if issue is first issue: ${error}`);
       return false;
+    }
+  }
+}
+
+;// CONCATENATED MODULE: ./src/pull-request.js
+const pull_request_core = __nccwpck_require__(2186);
+const pull_request_github = __nccwpck_require__(5438);
+
+
+
+
+
+const {
+  getChangelog,
+  getCredits,
+  getDescription,
+  getInputs: pull_request_getInputs,
+} = __nccwpck_require__(1608);
+
+const [pull_request_owner, pull_request_repo] = process.env.GITHUB_REPOSITORY.split("/");
+
+async function pull_request_run() {
+  // Bail if not a pull request.
+  if ("pull_request" !== pull_request_github.context.eventName) {
+      pull_request_core.info("Skipping operations on pull_request event");
+      return;
+  }
+
+  try {
+    const gh = new GitHub({
+      owner: pull_request_owner,
+      repo: pull_request_repo,
+    });
+    const pullRequest = pull_request_github.context.payload?.pull_request || {};
+    const issueNumber = pull_request_github.context.issue.number;
+    const {
+      labels,
+      requested_reviewers: requestedReviewers,
+      draft: isDraft,
+      assignees,
+      user: author,
+      milestone,
+    } = pullRequest;
+
+    const {
+      assignIssues,
+      addMilestone,
+      assignPullRequest,
+      failLabel,
+      passLabel,
+      commentTemplate,
+      prReviewers,
+    } = pull_request_getInputs(pullRequest);
+    pull_request_core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
+    pull_request_core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
+
+    // Handle Bot User
+    if ("Bot" === author?.type) {
+      // Skip validation against bot user.
+      await gh.addLabel(issueNumber, passLabel);
+      await gh.requestPRReview(issueNumber, prReviewers);
+      return;
+    }
+
+    // Assign PR to author
+    if (
+      (!assignees || !Array.isArray(assignees) || !assignees.length) &&
+      assignPullRequest
+    ) {
+      pull_request_core.info("PR is unassigned, assigning PR");
+      await gh.assignPR(issueNumber, author);
+    }
+
+    // Assign Issues to author
+    if (assignIssues) {
+      pull_request_core.info("Assigning issues to PR author");
+      await gh.assignIssues(issueNumber, author);
+    }
+
+    // Add milestone to PR
+    if (!milestone && addMilestone) {
+      await gh.addMilestone(issueNumber);
+    }
+
+    // Add welcome message to PR if first time contributor.
+    const welcomeMessage = new WelcomeMessage(pull_request_owner, pull_request_repo);
+    await welcomeMessage.run();
+
+    // Check for conflicts.
+    const conflictFinder = new PRConflict(pull_request_owner, pull_request_repo);
+    await conflictFinder.run(pullRequest.number);
+
+    // Skip Draft PR
+    if (isDraft) {
+      // Remove labels and review to handle case of switch PR back draft.
+      await gh.removeLabel(issueNumber, labels, failLabel);
+      await gh.removeLabel(issueNumber, labels, passLabel);
+      await gh.removePRReviewer(issueNumber, prReviewers, requestedReviewers);
+
+      pull_request_core.info("Skipping DRAFT PR validation!");
+      return;
+    }
+
+    // Start validation.
+    const changelog = getChangelog(pullRequest);
+    const props = getCredits(pullRequest);
+    const description = getDescription(pullRequest);
+
+    // Debug information.
+    pull_request_core.debug(`Changelog: ${JSON.stringify(changelog)}`);
+    pull_request_core.debug(`Credits: ${JSON.stringify(props)}`);
+    pull_request_core.debug(`Description: ${description}`);
+
+    if (!changelog.length || !props.length || !description.length) {
+      // Remove Pass Label if already there.
+      await gh.removeLabel(issueNumber, labels, passLabel);
+
+      // Add Fail Label.
+      await gh.addLabel(issueNumber, failLabel);
+
+      // Add Comment to for author to fill out the PR template.
+      const commentBody = commentTemplate.replace(
+        "{author}",
+        `@${author.login}`
+      );
+      await gh.addComment(issueNumber, commentBody);
+
+      if (!changelog.length) {
+        pull_request_core.setFailed("Please fill out the changelog information");
+      }
+      if (!props.length) {
+        pull_request_core.setFailed("Please fill out the credits information");
+      }
+      if (!description.length) {
+        pull_request_core.setFailed(
+          "Please add some description about the changes made in PR"
+        );
+      }
+      return;
+    }
+
+    // All good to go.
+    // 1. Remove fail label
+    // 2. Add Pass label
+    // 3. Request Review.
+    await gh.removeLabel(issueNumber, labels, failLabel);
+    await gh.addLabel(issueNumber, passLabel);
+    if (requestedReviewers.length === 0) {
+      await gh.requestPRReview(issueNumber, prReviewers);
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      pull_request_core.setFailed(error.message);
     }
   }
 }

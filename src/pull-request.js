@@ -3,6 +3,7 @@ const github = require("@actions/github");
 
 import GitHub from "./github";
 import PRConflict from "./pr-conflict";
+import WelcomeMessage from "./welcome-message";
 
 const {
   getChangelog,
@@ -75,6 +76,10 @@ export async function run() {
     if (!milestone && addMilestone) {
       await gh.addMilestone(issueNumber);
     }
+
+    // Add welcome message to PR if first time contributor.
+    const welcomeMessage = new WelcomeMessage(owner, repo);
+    await welcomeMessage.run();
 
     // Check for conflicts.
     const conflictFinder = new PRConflict(owner, repo);
