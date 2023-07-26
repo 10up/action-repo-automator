@@ -49,7 +49,7 @@ inputs:
     required: false
     default: false
   comment-ignore-users:
-    description: 'List of users to ignore when adding comment on newly opened issue or PR.'
+    description: 'List of users to ignore for adding comments when the issue or PR is opened by them.'
     required: false
   reviewers:
     description: 'List of Reviewers to request PR review after passing all validation checks'
