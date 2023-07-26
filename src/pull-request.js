@@ -4,6 +4,7 @@ const github = require("@actions/github");
 import GitHub from "./github";
 import PRConflict from "./pr-conflict";
 import WelcomeMessage from "./welcome-message";
+import AutoComment from "./auto-comment";
 
 const {
   getChangelog,
@@ -80,15 +81,15 @@ export async function run() {
     }
 
     // Add welcome message to PR if first time contributor.
-    if (prWelcomeMessage) {
+    if (prWelcomeMessage && github.context.payload.action === "opened") {
       const welcomeMessage = new WelcomeMessage(owner, repo);
       await welcomeMessage.run();
     }
 
     // Add comment to PR if provided.
     if (prComment && github.context.payload.action === "opened") {
-      const prCommentBody = prComment.replace("{author}", `@${author.login}`);
-      await gh.addComment(issueNumber, prCommentBody);
+      const autoComment = new AutoComment(owner, repo);
+      await autoComment.run();
     }
 
     // Check for conflicts.

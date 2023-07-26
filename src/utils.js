@@ -1,10 +1,10 @@
 const core = require("@actions/core");
 
 /**
- * Get PR description.
+ * Get inputs from workflow file.
  *
  * @param {object} pullRequest Pull request payload
- * @returns string
+ * @returns object
  */
 export function getInputs(pullRequest = {}) {
   const assignIssues =
@@ -40,6 +40,7 @@ export function getInputs(pullRequest = {}) {
     core.getInput("pr-comment") === "false"
       ? false
       : core.getInput("pr-comment") || false;
+  const ignoreUsers = core.getMultilineInput("comment-ignore-users") || [];
 
   const authorLogin = pullRequest?.user?.login;
   const reviewers = core.getMultilineInput("reviewers");
@@ -91,6 +92,15 @@ export function getInputs(pullRequest = {}) {
   );
   core.debug(`Wait Milliseconds: ${waitMS} (${typeof waitMS})`);
   core.debug(`Max Retries: ${maxRetries} (${typeof maxRetries})`);
+  core.debug(`Issue Comment: ${issueComment} (${typeof issueComment})`);
+  core.debug(
+    `Issue Welcome Message: ${issueWelcomeMessage} (${typeof issueWelcomeMessage})`
+  );
+  core.debug(`PR Comment: ${prComment} (${typeof prComment})`);
+  core.debug(
+    `PR Welcome Message: ${prWelcomeMessage} (${typeof prWelcomeMessage})`
+  );
+  core.debug(`Ignore Users: ${ignoreUsers} (${typeof ignoreUsers})`);
 
   return {
     assignIssues,
@@ -99,6 +109,7 @@ export function getInputs(pullRequest = {}) {
     commentTemplate,
     conflictLabel,
     conflictComment,
+    ignoreUsers,
     issueComment,
     issueWelcomeMessage,
     failLabel,

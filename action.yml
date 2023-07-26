@@ -48,6 +48,9 @@ inputs:
     description: 'Comment template for adding a welcome message on a PR for first-time PR creators'
     required: false
     default: false
+  comment-ignore-users:
+    description: 'List of users to ignore when adding comment on newly opened issue or PR.'
+    required: false
   reviewers:
     description: 'List of Reviewers to request PR review after passing all validation checks'
     required: false

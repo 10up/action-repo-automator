@@ -35847,10 +35847,10 @@ __nccwpck_require__.r(__webpack_exports__);
 const core = __nccwpck_require__(2186);
 
 /**
- * Get PR description.
+ * Get inputs from workflow file.
  *
  * @param {object} pullRequest Pull request payload
- * @returns string
+ * @returns object
  */
 function getInputs(pullRequest = {}) {
   const assignIssues =
@@ -35886,6 +35886,7 @@ function getInputs(pullRequest = {}) {
     core.getInput("pr-comment") === "false"
       ? false
       : core.getInput("pr-comment") || false;
+  const ignoreUsers = core.getMultilineInput("comment-ignore-users") || [];
 
   const authorLogin = pullRequest?.user?.login;
   const reviewers = core.getMultilineInput("reviewers");
@@ -35937,6 +35938,15 @@ function getInputs(pullRequest = {}) {
   );
   core.debug(`Wait Milliseconds: ${waitMS} (${typeof waitMS})`);
   core.debug(`Max Retries: ${maxRetries} (${typeof maxRetries})`);
+  core.debug(`Issue Comment: ${issueComment} (${typeof issueComment})`);
+  core.debug(
+    `Issue Welcome Message: ${issueWelcomeMessage} (${typeof issueWelcomeMessage})`
+  );
+  core.debug(`PR Comment: ${prComment} (${typeof prComment})`);
+  core.debug(
+    `PR Welcome Message: ${prWelcomeMessage} (${typeof prWelcomeMessage})`
+  );
+  core.debug(`Ignore Users: ${ignoreUsers} (${typeof ignoreUsers})`);
 
   return {
     assignIssues,
@@ -35945,6 +35955,7 @@ function getInputs(pullRequest = {}) {
     commentTemplate,
     conflictLabel,
     conflictComment,
+    ignoreUsers,
     issueComment,
     issueWelcomeMessage,
     failLabel,
@@ -36942,6 +36953,42 @@ class GitHub {
   async graphql(query, variables) {
     return this.octokit.graphql(query, variables);
   }
+
+  /**
+   * Get team members.
+   * @param {string} teamSlug
+   * @returns {array} array of team members
+   */
+  async getTeamMembers(teamSlug) {
+    const response = await this.octokit.teams.listMembersInOrg({
+      org: this.owner,
+      team_slug: teamSlug,
+    });
+
+    const members = response.data?.map((member) => member.login);
+    return members;
+  }
+
+  /**
+   * Parse users by replacing team with team members.
+   *
+   * @param {string[]} users
+   * @returns {string[]} parsed users
+   */
+  async parseUsers(users) {
+    const parsedUsers = [];
+    for (const user of users) {
+      if (user.startsWith("team:")) {
+        const teamUsers = await this.getTeamMembers(user.replace("team:", ""));
+        if (teamUsers?.length) {
+          parsedUsers.push(...teamUsers);
+        }
+      } else {
+        parsedUsers.push(user);
+      }
+    }
+    return parsedUsers;
+  }
 }
 
 ;// CONCATENATED MODULE: ./src/pr-conflict.js
@@ -37275,9 +37322,88 @@ class WelcomeMessage {
   }
 }
 
+;// CONCATENATED MODULE: ./src/auto-comment.js
+
+
+
+
+const { getInputs: auto_comment_getInputs } = __nccwpck_require__(1608);
+
+class AutoComment {
+  constructor(owner, repo) {
+    this.repo = repo;
+    this.owner = owner;
+    this.inputs = auto_comment_getInputs();
+    this.gh = new GitHub({
+      owner: this.owner,
+      repo: this.repo,
+    });
+  }
+
+  async run() {
+    const context = lib_github.context;
+
+    if (context.payload.action !== "opened") {
+      lib_core.info("Not an opened action! Skipping...");
+      return;
+    }
+
+    const isPR =
+      !!context.payload.pull_request && context.eventName === "pull_request";
+    const isIssue = !!context.payload.issue && context.eventName === "issues";
+    const { issueComment, prComment, ignoreUsers } = this.inputs;
+    if (!isPR && !isIssue) {
+      lib_core.info("Not a pull request or Issue! Skipping...");
+      return;
+    }
+
+    if (isIssue && !issueComment) {
+      lib_core.info("Issue comment is not provided! Skipping...");
+      return;
+    }
+
+    if (isPR && !prComment) {
+      lib_core.info("PR comment is not provided! Skipping...");
+      return;
+    }
+
+    const { issue, pull_request } = context.payload;
+    const {
+      number,
+      user: { login: author, type: authorType },
+    } = issue || pull_request;
+    if (!author) {
+      lib_core.info("No author found! Skipping...");
+      return;
+    }
+
+    // Handle Bot User
+    if ("Bot" === authorType) {
+      // Skip validation against bot user.
+      lib_core.info("Issue/PR opened by bot user. Skipping...");
+      return;
+    }
+
+    const allIgnoreUsers = await this.gh.parseUsers(ignoreUsers);
+    if (allIgnoreUsers.includes(author)) {
+      lib_core.info(`Skipping comment for ${author}, as it is in ignore list`);
+      return;
+    }
+
+    // Add comment to newly opened issues/PRs.
+    lib_core.info("Adding comment...");
+    const comment = isIssue ? issueComment : prComment;
+    const commentBody = comment.replace("{author}", `@${author}`);
+
+    // Add comment to issue.
+    await this.gh.addComment(number, commentBody);
+  }
+}
+
 ;// CONCATENATED MODULE: ./src/pull-request.js
 const pull_request_core = __nccwpck_require__(2186);
 const pull_request_github = __nccwpck_require__(5438);
+
 
 
 
@@ -37358,15 +37484,15 @@ async function pull_request_run() {
     }
 
     // Add welcome message to PR if first time contributor.
-    if (prWelcomeMessage) {
+    if (prWelcomeMessage && pull_request_github.context.payload.action === "opened") {
       const welcomeMessage = new WelcomeMessage(pull_request_owner, pull_request_repo);
       await welcomeMessage.run();
     }
 
     // Add comment to PR if provided.
     if (prComment && pull_request_github.context.payload.action === "opened") {
-      const prCommentBody = prComment.replace("{author}", `@${author.login}`);
-      await gh.addComment(issueNumber, prCommentBody);
+      const autoComment = new AutoComment(pull_request_owner, pull_request_repo);
+      await autoComment.run();
     }
 
     // Check for conflicts.
@@ -37444,7 +37570,6 @@ const issues_github = __nccwpck_require__(5438);
 
 
 
-const { getInputs: issues_getInputs } = __nccwpck_require__(1608);
 
 const [issues_owner, issues_repo] = process.env.GITHUB_REPOSITORY.split("/");
 
@@ -37453,15 +37578,6 @@ async function issues_run() {
   if ("issues" !== issues_github.context.eventName) {
     issues_core.info("Skipping operations on issues event");
     return;
-  }
-
-  // Welcome new Users.
-  try {
-    const welcomeMessage = new WelcomeMessage(issues_owner, issues_repo);
-    await welcomeMessage.run();
-  } catch (error) {
-    const errorMessage = error.message || "Unknown error";
-    issues_core.setFailed(errorMessage);
   }
 
   // Add a Welcome Message to issue created by first-time contributors.
@@ -37475,27 +37591,8 @@ async function issues_run() {
 
   // Add comment to newly opened issues.
   try {
-    const { issueComment } = issues_getInputs({});
-    if (issueComment) {
-      issues_core.info("Adding comment to issue...");
-      const issue = issues_github.context.payload?.issue || {};
-      const {
-        number,
-        user: { login: issueUser },
-      } = issue;
-      const gh = new GitHub({
-        owner: issues_owner,
-        repo: issues_repo,
-      });
-
-      const issueCommentBody = issueComment.replace(
-        "{author}",
-        `@${issueUser}`
-      );
-
-      // Add comment to issue.
-      await gh.addComment(number, issueCommentBody);
-    }
+    const autoComment = new AutoComment(issues_owner, issues_repo);
+    await autoComment.run();
   } catch (error) {
     const errorMessage = error.message || "Unknown error";
     issues_core.setFailed(errorMessage);

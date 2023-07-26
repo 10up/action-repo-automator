@@ -606,4 +606,40 @@ export default class GitHub {
   async graphql(query, variables) {
     return this.octokit.graphql(query, variables);
   }
+
+  /**
+   * Get team members.
+   * @param {string} teamSlug
+   * @returns {array} array of team members
+   */
+  async getTeamMembers(teamSlug) {
+    const response = await this.octokit.teams.listMembersInOrg({
+      org: this.owner,
+      team_slug: teamSlug,
+    });
+
+    const members = response.data?.map((member) => member.login);
+    return members;
+  }
+
+  /**
+   * Parse users by replacing team with team members.
+   *
+   * @param {string[]} users
+   * @returns {string[]} parsed users
+   */
+  async parseUsers(users) {
+    const parsedUsers = [];
+    for (const user of users) {
+      if (user.startsWith("team:")) {
+        const teamUsers = await this.getTeamMembers(user.replace("team:", ""));
+        if (teamUsers?.length) {
+          parsedUsers.push(...teamUsers);
+        }
+      } else {
+        parsedUsers.push(user);
+      }
+    }
+    return parsedUsers;
+  }
 }
