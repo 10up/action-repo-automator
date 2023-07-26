@@ -35878,6 +35878,14 @@ function getInputs(pullRequest = {}) {
     core.getInput("pr-welcome-message") === "false"
       ? false
       : core.getInput("pr-welcome-message") || false;
+  const issueComment =
+    core.getInput("issue-comment") === "false"
+      ? false
+      : core.getInput("issue-comment") || false;
+  const prComment =
+    core.getInput("pr-comment") === "false"
+      ? false
+      : core.getInput("pr-comment") || false;
 
   const authorLogin = pullRequest?.user?.login;
   const reviewers = core.getMultilineInput("reviewers");
@@ -35937,10 +35945,12 @@ function getInputs(pullRequest = {}) {
     commentTemplate,
     conflictLabel,
     conflictComment,
+    issueComment,
     issueWelcomeMessage,
     failLabel,
     maxRetries,
     passLabel,
+    prComment,
     prReviewers,
     prWelcomeMessage,
     waitMS,
@@ -37285,8 +37295,8 @@ const [pull_request_owner, pull_request_repo] = process.env.GITHUB_REPOSITORY.sp
 async function pull_request_run() {
   // Bail if not a pull request.
   if ("pull_request" !== pull_request_github.context.eventName) {
-      pull_request_core.info("Skipping operations on pull_request event");
-      return;
+    pull_request_core.info("Skipping operations on pull_request event");
+    return;
   }
 
   try {
@@ -37312,6 +37322,7 @@ async function pull_request_run() {
       failLabel,
       passLabel,
       commentTemplate,
+      prComment,
       prReviewers,
       prWelcomeMessage,
     } = pull_request_getInputs(pullRequest);
@@ -37347,9 +37358,15 @@ async function pull_request_run() {
     }
 
     // Add welcome message to PR if first time contributor.
-    if ( prWelcomeMessage ) {
+    if (prWelcomeMessage) {
       const welcomeMessage = new WelcomeMessage(pull_request_owner, pull_request_repo);
       await welcomeMessage.run();
+    }
+
+    // Add comment to PR if provided.
+    if (prComment && pull_request_github.context.payload.action === "opened") {
+      const prCommentBody = prComment.replace("{author}", `@${author.login}`);
+      await gh.addComment(issueNumber, prCommentBody);
     }
 
     // Check for conflicts.
@@ -37427,6 +37444,8 @@ const issues_github = __nccwpck_require__(5438);
 
 
 
+const { getInputs: issues_getInputs } = __nccwpck_require__(1608);
+
 const [issues_owner, issues_repo] = process.env.GITHUB_REPOSITORY.split("/");
 
 async function issues_run() {
@@ -37440,6 +37459,43 @@ async function issues_run() {
   try {
     const welcomeMessage = new WelcomeMessage(issues_owner, issues_repo);
     await welcomeMessage.run();
+  } catch (error) {
+    const errorMessage = error.message || "Unknown error";
+    issues_core.setFailed(errorMessage);
+  }
+
+  // Add a Welcome Message to issue created by first-time contributors.
+  try {
+    const welcomeMessage = new WelcomeMessage(issues_owner, issues_repo);
+    await welcomeMessage.run();
+  } catch (error) {
+    const errorMessage = error.message || "Unknown error";
+    issues_core.setFailed(errorMessage);
+  }
+
+  // Add comment to newly opened issues.
+  try {
+    const { issueComment } = issues_getInputs({});
+    if (issueComment) {
+      issues_core.info("Adding comment to issue...");
+      const issue = issues_github.context.payload?.issue || {};
+      const {
+        number,
+        user: { login: issueUser },
+      } = issue;
+      const gh = new GitHub({
+        owner: issues_owner,
+        repo: issues_repo,
+      });
+
+      const issueCommentBody = issueComment.replace(
+        "{author}",
+        `@${issueUser}`
+      );
+
+      // Add comment to issue.
+      await gh.addComment(number, issueCommentBody);
+    }
   } catch (error) {
     const errorMessage = error.message || "Unknown error";
     issues_core.setFailed(errorMessage);

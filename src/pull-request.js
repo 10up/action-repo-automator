@@ -17,8 +17,8 @@ const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
 export async function run() {
   // Bail if not a pull request.
   if ("pull_request" !== github.context.eventName) {
-      core.info("Skipping operations on pull_request event");
-      return;
+    core.info("Skipping operations on pull_request event");
+    return;
   }
 
   try {
@@ -44,6 +44,7 @@ export async function run() {
       failLabel,
       passLabel,
       commentTemplate,
+      prComment,
       prReviewers,
       prWelcomeMessage,
     } = getInputs(pullRequest);
@@ -79,9 +80,15 @@ export async function run() {
     }
 
     // Add welcome message to PR if first time contributor.
-    if ( prWelcomeMessage ) {
+    if (prWelcomeMessage) {
       const welcomeMessage = new WelcomeMessage(owner, repo);
       await welcomeMessage.run();
+    }
+
+    // Add comment to PR if provided.
+    if (prComment && github.context.payload.action === "opened") {
+      const prCommentBody = prComment.replace("{author}", `@${author.login}`);
+      await gh.addComment(issueNumber, prCommentBody);
     }
 
     // Check for conflicts.

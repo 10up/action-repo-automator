@@ -32,6 +32,14 @@ export function getInputs(pullRequest = {}) {
     core.getInput("pr-welcome-message") === "false"
       ? false
       : core.getInput("pr-welcome-message") || false;
+  const issueComment =
+    core.getInput("issue-comment") === "false"
+      ? false
+      : core.getInput("issue-comment") || false;
+  const prComment =
+    core.getInput("pr-comment") === "false"
+      ? false
+      : core.getInput("pr-comment") || false;
 
   const authorLogin = pullRequest?.user?.login;
   const reviewers = core.getMultilineInput("reviewers");
@@ -91,10 +99,12 @@ export function getInputs(pullRequest = {}) {
     commentTemplate,
     conflictLabel,
     conflictComment,
+    issueComment,
     issueWelcomeMessage,
     failLabel,
     maxRetries,
     passLabel,
+    prComment,
     prReviewers,
     prWelcomeMessage,
     waitMS,
