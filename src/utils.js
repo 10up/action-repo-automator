@@ -55,7 +55,7 @@ export function getInputs(pullRequest = {}) {
       prReviewers = prReviewer ? [prReviewer] : ["team:open-source-practice"];
     }
   }
-  core.info("Remove PR author from PR reviewers.");
+  core.debug("Remove PR author from PR reviewers.");
   if (prReviewers.length) {
     prReviewers = prReviewers.filter((reviewer) => reviewer !== authorLogin);
   }
