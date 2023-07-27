@@ -36003,6 +36003,18 @@ function getInputs(pullRequest = {}) {
 }
 
 /**
+ * Get Matches from string based on regex
+ * 
+ * @param {string} string 
+ * @param {string} validationRegex 
+ * @returns 
+ */
+function getMatches(string, validationRegex) {
+  const regex = new RegExp(validationRegex);
+  return regex.exec(string);
+}
+
+/**
  * Get PR description.
  *
  * @param {object} payload Pull request payload
@@ -36011,7 +36023,7 @@ function getInputs(pullRequest = {}) {
 function getDescription(payload, validationRegex) {
   let description = "";
   const cleanBody = payload?.body?.replace(/<!--.*?-->/gs, "");
-  const matches = new RegExp(validationRegex).exec(cleanBody);
+  const matches = getMatches(cleanBody, validationRegex);
   if (matches !== null) {
     description = matches[1]
       .replace(/\r?\n|\r/g, "")
@@ -36031,7 +36043,7 @@ function getDescription(payload, validationRegex) {
 function getCredits(payload, validationRegex) {
   const cleanBody = payload?.body?.replace(/<!--.*?-->/gs, "");
   let credits = [];
-  const matches = new RegExp(validationRegex).exec(cleanBody);
+  const matches = getMatches(cleanBody, validationRegex);
   if (matches !== null) {
     credits = matches[1].match(/@([\w-]+)/g);
     if (credits !== null) {
@@ -36057,7 +36069,7 @@ function getCredits(payload, validationRegex) {
 function getChangelog(payload, validationRegex) {
   let entries = [];
   const cleanBody = payload?.body?.replace(/<!--.*?-->/gs, "");
-  const matches = new RegExp(validationRegex).exec(cleanBody);
+  const matches = getMatches(cleanBody, validationRegex);
   if (matches !== null) {
     const changelog = matches[1];
     entries = changelog.split(/\r?\n/);
