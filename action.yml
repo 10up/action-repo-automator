@@ -32,6 +32,25 @@ inputs:
     description: "Comment template for adding comment on PR if it doesn't pass the validation"
     required: false
     default: '{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?'
+  issue-welcome-message:
+    description: 'Comment template for adding a welcome message on an issue for first-time issue creators'
+    required: false
+    default: false
+  issue-comment:
+    description: 'Comment template for adding a comment to a newly opened issue.'
+    required: false
+    default: false
+  pr-comment:
+    description: 'Comment template for adding a comment to a newly opened pull request.'
+    required: false
+    default: false
+  pr-welcome-message:
+    description: 'Comment template for adding a welcome message on a PR for first-time PR creators'
+    required: false
+    default: false
+  comment-ignore-users:
+    description: 'List of users to ignore for adding comments when the issue or PR is opened by them.'
+    required: false
   reviewers:
     description: 'List of Reviewers to request PR review after passing all validation checks'
     required: false

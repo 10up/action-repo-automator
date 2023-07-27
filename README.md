@@ -17,12 +17,14 @@ This GitHub Action Helps with the following operations:
 - **Auto-label merge conflicts:** Automatically adds a label to PRs with merge conflicts, and once a conflict is resolved, the label is automatically removed.
 - **Auto-comment merge conflicts:** Automatically adds a comment to PRs with merge conflicts to notify the PR author, and once a conflict is resolved, the comment is automatically removed.
 - **Auto-Sync PR branch:** Automatically keeps the pull request branch up to date with the base branch.
+- **Welcome first-time contributors:** Greet first-time contributors with a warm welcome message on their first issue or PR to the project.
+- **Auto-comment on new Issues/PRs:** Automatically adds a comment to newly opened issues and PRs. This can be used to request users to provide as much context as possible or share links to your contributing guidelines, or anything else that suits your use case.
 
 ## Configuration
 
 ### Required secrets
 
-* `GITHUB_TOKEN`
+- `GITHUB_TOKEN`
 
 ### Other optional configurations
 
@@ -36,6 +38,11 @@ This GitHub Action Helps with the following operations:
 | conflict-label | `needs:refresh` | The label to be added to PR if the pull request has conflicts |
 | comment-template | `{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?` | Comment template for adding comment on PR if it doesn't pass the validation |
 | conflict-comment | `{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?` | Comment template for adding comment on PR if it has conflicts |
+| issue-welcome-message | false | Comment template for adding a welcome message on an issue for first-time issue creators |
+| pr-welcome-message | false | Comment template for adding a welcome message on a PR for first-time PR creators |
+| issue-comment | false | Comment template for adding a comment to a newly opened issue |
+| pr-comment | false | Comment template for adding a comment to a newly opened pull request |
+| comment-ignore-users | - | List of users to ignore for adding comments when the issue or PR is opened by them.  Add prefix `team:` if you want to ignore users from the team. |
 | reviewers | `team:open-source-practice` | List of Reviewers to request PR review after passing all validation checks. Add prefix `team:` if you want to request review from the team.
 | sync-pr-branch | false | Whether to enable automatic synchronization of the pull request branch with the base branch |
 | wait-ms | `15000` | Time to wait in milliseconds between retries to check PR mergeable status |
@@ -48,6 +55,9 @@ To get started, you will want to copy the contents of the given example into `.g
 ```yml
 name: 'PR Automator'
 on:
+  issues:
+    types:
+      - opened
   push:
     branches:
       - develop
@@ -70,9 +80,18 @@ jobs:
           fail-label: 'needs:feedback'
           pass-label: 'needs:code-review'
           conflict-label: 'needs:refresh'
+          issue-welcome-message: |
+            Welcome {author}! 👋 Thank you for opening your first issue! We're glad to have you here and appreciate your contribution. If you need any help or have questions, feel free to ask. Happy coding! 🚀
           reviewers: |
             GITHUB_USERNAME
-            GITHUB_USERNAME_2
+            team:GITHUB_TEAM_SLUG
+          issue-comment: |
+            Hi {author},
+
+            Thank you for reporting this issue! We appreciate your feedback and will look into it promptly.
+          comment-ignore-users: |
+            GITHUB_USERNAME
+            team:GITHUB_TEAM_SLUG
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```

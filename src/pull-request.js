@@ -3,6 +3,8 @@ const github = require("@actions/github");
 
 import GitHub from "./github";
 import PRConflict from "./pr-conflict";
+import WelcomeMessage from "./welcome-message";
+import AutoComment from "./auto-comment";
 
 const {
   getChangelog,
@@ -16,8 +18,8 @@ const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
 export async function run() {
   // Bail if not a pull request.
   if ("pull_request" !== github.context.eventName) {
-      core.info("Skipping operations on pull_request event");
-      return;
+    core.info("Skipping operations on pull_request event");
+    return;
   }
 
   try {
@@ -43,7 +45,9 @@ export async function run() {
       failLabel,
       passLabel,
       commentTemplate,
+      prComment,
       prReviewers,
+      prWelcomeMessage,
     } = getInputs(pullRequest);
     core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
     core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
@@ -74,6 +78,18 @@ export async function run() {
     // Add milestone to PR
     if (!milestone && addMilestone) {
       await gh.addMilestone(issueNumber);
+    }
+
+    // Add welcome message to PR if first time contributor.
+    if (prWelcomeMessage && github.context.payload.action === "opened") {
+      const welcomeMessage = new WelcomeMessage(owner, repo);
+      await welcomeMessage.run();
+    }
+
+    // Add comment to PR if provided.
+    if (prComment && github.context.payload.action === "opened") {
+      const autoComment = new AutoComment(owner, repo);
+      await autoComment.run();
     }
 
     // Check for conflicts.

@@ -35847,10 +35847,10 @@ __nccwpck_require__.r(__webpack_exports__);
 const core = __nccwpck_require__(2186);
 
 /**
- * Get PR description.
+ * Get inputs from workflow file.
  *
  * @param {object} pullRequest Pull request payload
- * @returns string
+ * @returns object
  */
 function getInputs(pullRequest = {}) {
   const assignIssues =
@@ -35871,6 +35871,23 @@ function getInputs(pullRequest = {}) {
       ? false
       : core.getInput("comment-template") ||
         "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?";
+  const issueWelcomeMessage =
+    core.getInput("issue-welcome-message") === "false"
+      ? false
+      : core.getInput("issue-welcome-message") || false;
+  const prWelcomeMessage =
+    core.getInput("pr-welcome-message") === "false"
+      ? false
+      : core.getInput("pr-welcome-message") || false;
+  const issueComment =
+    core.getInput("issue-comment") === "false"
+      ? false
+      : core.getInput("issue-comment") || false;
+  const prComment =
+    core.getInput("pr-comment") === "false"
+      ? false
+      : core.getInput("pr-comment") || false;
+  const ignoreUsers = core.getMultilineInput("comment-ignore-users") || [];
 
   const authorLogin = pullRequest?.user?.login;
   const reviewers = core.getMultilineInput("reviewers");
@@ -35885,7 +35902,7 @@ function getInputs(pullRequest = {}) {
       prReviewers = prReviewer ? [prReviewer] : ["team:open-source-practice"];
     }
   }
-  core.info("Remove PR author from PR reviewers.");
+  core.debug("Remove PR author from PR reviewers.");
   if (prReviewers.length) {
     prReviewers = prReviewers.filter((reviewer) => reviewer !== authorLogin);
   }
@@ -35922,6 +35939,15 @@ function getInputs(pullRequest = {}) {
   );
   core.debug(`Wait Milliseconds: ${waitMS} (${typeof waitMS})`);
   core.debug(`Max Retries: ${maxRetries} (${typeof maxRetries})`);
+  core.debug(`Issue Comment: ${issueComment} (${typeof issueComment})`);
+  core.debug(
+    `Issue Welcome Message: ${issueWelcomeMessage} (${typeof issueWelcomeMessage})`
+  );
+  core.debug(`PR Comment: ${prComment} (${typeof prComment})`);
+  core.debug(
+    `PR Welcome Message: ${prWelcomeMessage} (${typeof prWelcomeMessage})`
+  );
+  core.debug(`Ignore Users: ${ignoreUsers} (${typeof ignoreUsers})`);
 
   return {
     assignIssues,
@@ -35930,11 +35956,16 @@ function getInputs(pullRequest = {}) {
     commentTemplate,
     conflictLabel,
     conflictComment,
+    ignoreUsers,
+    issueComment,
+    issueWelcomeMessage,
     failLabel,
     maxRetries,
     passLabel,
+    prComment,
     prReviewers,
     syncPRBranch,
+    prWelcomeMessage,
     waitMS,
   };
 }
@@ -36430,12 +36461,8 @@ class GitHub {
         repo: this.repo,
         issue_number: prNumber,
       });
-      const isExist = comments.some(({ user, body }) => {
-        // Check comments of Bot user only.
-        if ("Bot" !== user.type) {
-          return false;
-        }
 
+      const isExist = comments.some(({ body }) => {
         return body === message;
       });
 
@@ -36945,6 +36972,52 @@ class GitHub {
 
     return response;
   }
+
+  /**
+   * Run GraphQL query.
+   * @param {string} query
+   * @param {object} variables
+   * @returns {object} response
+   */
+  async graphql(query, variables) {
+    return this.octokit.graphql(query, variables);
+  }
+
+  /**
+   * Get team members.
+   * @param {string} teamSlug
+   * @returns {array} array of team members
+   */
+  async getTeamMembers(teamSlug) {
+    const response = await this.octokit.teams.listMembersInOrg({
+      org: this.owner,
+      team_slug: teamSlug,
+    });
+
+    const members = response.data?.map((member) => member.login);
+    return members;
+  }
+
+  /**
+   * Parse users by replacing team with team members.
+   *
+   * @param {string[]} users
+   * @returns {string[]} parsed users
+   */
+  async parseUsers(users) {
+    const parsedUsers = [];
+    for (const user of users) {
+      if (user.startsWith("team:")) {
+        const teamUsers = await this.getTeamMembers(user.replace("team:", ""));
+        if (teamUsers?.length) {
+          parsedUsers.push(...teamUsers);
+        }
+      } else {
+        parsedUsers.push(user);
+      }
+    }
+    return parsedUsers;
+  }
 }
 
 ;// CONCATENATED MODULE: ./src/pr-conflict.js
@@ -36984,7 +37057,6 @@ class PRConflict {
           await wait(Number(waitMS));
         }
         pullRequest = await this.gh.getPullRequest(prNumber);
-        console.log(pullRequest);
       } while (
         tries < Number(maxRetries) &&
         pullRequest.mergeable === "UNKNOWN"
@@ -37138,9 +37210,244 @@ async function run() {
   }
 }
 
+// EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
+var lib_core = __nccwpck_require__(2186);
+// EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js
+var lib_github = __nccwpck_require__(5438);
+;// CONCATENATED MODULE: ./src/welcome-message.js
+
+
+
+
+const { getInputs: welcome_message_getInputs } = __nccwpck_require__(1608);
+
+class WelcomeMessage {
+  constructor(owner, repo) {
+    this.repo = repo;
+    this.owner = owner;
+    this.inputs = welcome_message_getInputs();
+    this.gh = new GitHub({
+      owner: this.owner,
+      repo: this.repo,
+    });
+  }
+
+  async run() {
+    const context = lib_github.context;
+
+    if (context.payload.action !== "opened") {
+      lib_core.info("Not an opened action! Skipping...");
+      return;
+    }
+
+    const isPR =
+      !!context.payload.pull_request && context.eventName === "pull_request";
+    const isIssue = !!context.payload.issue && context.eventName === "issues";
+    const { issueWelcomeMessage, prWelcomeMessage } = this.inputs;
+    if (!isPR && !isIssue) {
+      lib_core.info("Not a pull request or Issue! Skipping...");
+      return;
+    }
+
+    lib_core.info(`isPR: ${isPR}`);
+    lib_core.info(`isIssue: ${isIssue}`);
+
+    if (isIssue && !issueWelcomeMessage) {
+      lib_core.info("Issue welcome message is not provided! Skipping...");
+      return;
+    }
+
+    if (isPR && !prWelcomeMessage) {
+      lib_core.info("PR welcome message is not provided! Skipping...");
+      return;
+    }
+
+    const { issue, pull_request } = context.payload;
+    const { number } = issue || pull_request;
+    const author = context.payload?.sender?.login;
+    if (!author) {
+      lib_core.info("No author found! Skipping...");
+      return;
+    }
+
+    let isFirst = false;
+    if (isIssue) {
+      isFirst = await this.isFirstIssue(author, number);
+    } else if (isPR) {
+      isFirst = await this.isFirstPR(author, number);
+    }
+
+    if (!isFirst) {
+      lib_core.info("Not first issue or PR! Skipping...");
+      return;
+    }
+
+    // Add welcome message
+    lib_core.info("Adding welcome message...");
+    const welcomeMessage = isIssue ? issueWelcomeMessage : prWelcomeMessage;
+    const comment = welcomeMessage.replace("{author}", `@${author}`);
+
+    await this.gh.addComment(number, comment);
+  }
+
+  /**
+   * Check if PR is first PR of user.
+   *
+   * @param {string} prAuthor
+   * @param {number} prNumber
+   * @returns
+   */
+  async isFirstPR(prAuthor, prNumber) {
+    try {
+      const query = `query ($queryString: String!) {
+        search(query: $queryString, first: 10, type: ISSUE) {
+          edges {
+            node {
+              ... on PullRequest {
+                number
+              }
+            }
+          }
+        }
+      }`;
+
+      const response = await this.gh.graphql(query, {
+        queryString: `is:pr author:${prAuthor} repo:${this.owner}/${this.repo}`,
+      });
+
+      const {
+        search: { edges },
+      } = response;
+      if (edges.length === 0) {
+        return true;
+      }
+
+      return !edges.some(({ node }) => node.number < prNumber);
+    } catch (error) {
+      lib_core.info(`Failed to check if PR is first PR: ${error}`);
+      return false;
+    }
+  }
+
+  async isFirstIssue(createdBy, issueNumber) {
+    try {
+      const query = `query query($owner: String!, $repo: String!, $createdBy: String!) {
+        repository(owner: $owner, name: $repo) {
+          issues(
+            filterBy: {createdBy: $createdBy}
+            first: 10
+            orderBy: {field: CREATED_AT, direction: ASC}
+          ) {
+            edges {
+              node {
+                number
+              }
+            }
+          }
+        }
+      }`;
+
+      const response = await this.gh.graphql(query, {
+        owner: this.owner,
+        repo: this.repo,
+        createdBy: createdBy,
+      });
+
+      const issues = response?.repository?.issues?.edges;
+      if (issues.length === 0) {
+        return true;
+      }
+      return !issues.some(({ node }) => node.number < issueNumber);
+    } catch (error) {
+      lib_core.info(`Failed to check if issue is first issue: ${error}`);
+      return false;
+    }
+  }
+}
+
+;// CONCATENATED MODULE: ./src/auto-comment.js
+
+
+
+
+const { getInputs: auto_comment_getInputs } = __nccwpck_require__(1608);
+
+class AutoComment {
+  constructor(owner, repo) {
+    this.repo = repo;
+    this.owner = owner;
+    this.inputs = auto_comment_getInputs();
+    this.gh = new GitHub({
+      owner: this.owner,
+      repo: this.repo,
+    });
+  }
+
+  async run() {
+    const context = lib_github.context;
+
+    if (context.payload.action !== "opened") {
+      lib_core.info("Not an opened action! Skipping...");
+      return;
+    }
+
+    const isPR =
+      !!context.payload.pull_request && context.eventName === "pull_request";
+    const isIssue = !!context.payload.issue && context.eventName === "issues";
+    const { issueComment, prComment, ignoreUsers } = this.inputs;
+    if (!isPR && !isIssue) {
+      lib_core.info("Not a pull request or Issue! Skipping...");
+      return;
+    }
+
+    if (isIssue && !issueComment) {
+      lib_core.info("Issue comment is not provided! Skipping...");
+      return;
+    }
+
+    if (isPR && !prComment) {
+      lib_core.info("PR comment is not provided! Skipping...");
+      return;
+    }
+
+    const { issue, pull_request } = context.payload;
+    const {
+      number,
+      user: { login: author, type: authorType },
+    } = issue || pull_request;
+    if (!author) {
+      lib_core.info("No author found! Skipping...");
+      return;
+    }
+
+    // Handle Bot User
+    if ("Bot" === authorType) {
+      // Skip validation against bot user.
+      lib_core.info("Issue/PR opened by bot user. Skipping...");
+      return;
+    }
+
+    const allIgnoreUsers = await this.gh.parseUsers(ignoreUsers);
+    if (allIgnoreUsers.includes(author)) {
+      lib_core.info(`Skipping comment for ${author}, as it is in ignore list`);
+      return;
+    }
+
+    // Add comment to newly opened issues/PRs.
+    lib_core.info("Adding comment...");
+    const comment = isIssue ? issueComment : prComment;
+    const commentBody = comment.replace("{author}", `@${author}`);
+
+    // Add comment to issue.
+    await this.gh.addComment(number, commentBody);
+  }
+}
+
 ;// CONCATENATED MODULE: ./src/pull-request.js
 const pull_request_core = __nccwpck_require__(2186);
 const pull_request_github = __nccwpck_require__(5438);
+
+
 
 
 
@@ -37157,8 +37464,8 @@ const [pull_request_owner, pull_request_repo] = process.env.GITHUB_REPOSITORY.sp
 async function pull_request_run() {
   // Bail if not a pull request.
   if ("pull_request" !== pull_request_github.context.eventName) {
-      pull_request_core.info("Skipping operations on pull_request event");
-      return;
+    pull_request_core.info("Skipping operations on pull_request event");
+    return;
   }
 
   try {
@@ -37184,7 +37491,9 @@ async function pull_request_run() {
       failLabel,
       passLabel,
       commentTemplate,
+      prComment,
       prReviewers,
+      prWelcomeMessage,
     } = pull_request_getInputs(pullRequest);
     pull_request_core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
     pull_request_core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
@@ -37215,6 +37524,18 @@ async function pull_request_run() {
     // Add milestone to PR
     if (!milestone && addMilestone) {
       await gh.addMilestone(issueNumber);
+    }
+
+    // Add welcome message to PR if first time contributor.
+    if (prWelcomeMessage && pull_request_github.context.payload.action === "opened") {
+      const welcomeMessage = new WelcomeMessage(pull_request_owner, pull_request_repo);
+      await welcomeMessage.run();
+    }
+
+    // Add comment to PR if provided.
+    if (prComment && pull_request_github.context.payload.action === "opened") {
+      const autoComment = new AutoComment(pull_request_owner, pull_request_repo);
+      await autoComment.run();
     }
 
     // Check for conflicts.
@@ -37286,9 +37607,45 @@ async function pull_request_run() {
   }
 }
 
+;// CONCATENATED MODULE: ./src/issues.js
+const issues_core = __nccwpck_require__(2186);
+const issues_github = __nccwpck_require__(5438);
+
+
+
+
+const [issues_owner, issues_repo] = process.env.GITHUB_REPOSITORY.split("/");
+
+async function issues_run() {
+  // Bail if not a on issues event.
+  if ("issues" !== issues_github.context.eventName) {
+    issues_core.info("Skipping operations on issues event");
+    return;
+  }
+
+  // Add a Welcome Message to issue created by first-time contributors.
+  try {
+    const welcomeMessage = new WelcomeMessage(issues_owner, issues_repo);
+    await welcomeMessage.run();
+  } catch (error) {
+    const errorMessage = error.message || "Unknown error";
+    issues_core.setFailed(errorMessage);
+  }
+
+  // Add comment to newly opened issues.
+  try {
+    const autoComment = new AutoComment(issues_owner, issues_repo);
+    await autoComment.run();
+  } catch (error) {
+    const errorMessage = error.message || "Unknown error";
+    issues_core.setFailed(errorMessage);
+  }
+}
+
 ;// CONCATENATED MODULE: ./index.js
 const index_core = __nccwpck_require__(2186);
 const index_github = __nccwpck_require__(5438);
+
 
 
 
@@ -37300,12 +37657,17 @@ async function index_run() {
 
     switch (eventName) {
       case "push": {
-        run();
+        await run();
         break;
       }
 
       case "pull_request": {
-        pull_request_run();
+        await pull_request_run();
+        break;
+      }
+
+      case "issues": {
+        await issues_run();
         break;
       }
 

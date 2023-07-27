@@ -1,10 +1,10 @@
 const core = require("@actions/core");
 
 /**
- * Get PR description.
+ * Get inputs from workflow file.
  *
  * @param {object} pullRequest Pull request payload
- * @returns string
+ * @returns object
  */
 export function getInputs(pullRequest = {}) {
   const assignIssues =
@@ -25,6 +25,23 @@ export function getInputs(pullRequest = {}) {
       ? false
       : core.getInput("comment-template") ||
         "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?";
+  const issueWelcomeMessage =
+    core.getInput("issue-welcome-message") === "false"
+      ? false
+      : core.getInput("issue-welcome-message") || false;
+  const prWelcomeMessage =
+    core.getInput("pr-welcome-message") === "false"
+      ? false
+      : core.getInput("pr-welcome-message") || false;
+  const issueComment =
+    core.getInput("issue-comment") === "false"
+      ? false
+      : core.getInput("issue-comment") || false;
+  const prComment =
+    core.getInput("pr-comment") === "false"
+      ? false
+      : core.getInput("pr-comment") || false;
+  const ignoreUsers = core.getMultilineInput("comment-ignore-users") || [];
 
   const authorLogin = pullRequest?.user?.login;
   const reviewers = core.getMultilineInput("reviewers");
@@ -39,7 +56,7 @@ export function getInputs(pullRequest = {}) {
       prReviewers = prReviewer ? [prReviewer] : ["team:open-source-practice"];
     }
   }
-  core.info("Remove PR author from PR reviewers.");
+  core.debug("Remove PR author from PR reviewers.");
   if (prReviewers.length) {
     prReviewers = prReviewers.filter((reviewer) => reviewer !== authorLogin);
   }
@@ -76,6 +93,15 @@ export function getInputs(pullRequest = {}) {
   );
   core.debug(`Wait Milliseconds: ${waitMS} (${typeof waitMS})`);
   core.debug(`Max Retries: ${maxRetries} (${typeof maxRetries})`);
+  core.debug(`Issue Comment: ${issueComment} (${typeof issueComment})`);
+  core.debug(
+    `Issue Welcome Message: ${issueWelcomeMessage} (${typeof issueWelcomeMessage})`
+  );
+  core.debug(`PR Comment: ${prComment} (${typeof prComment})`);
+  core.debug(
+    `PR Welcome Message: ${prWelcomeMessage} (${typeof prWelcomeMessage})`
+  );
+  core.debug(`Ignore Users: ${ignoreUsers} (${typeof ignoreUsers})`);
 
   return {
     assignIssues,
@@ -84,11 +110,16 @@ export function getInputs(pullRequest = {}) {
     commentTemplate,
     conflictLabel,
     conflictComment,
+    ignoreUsers,
+    issueComment,
+    issueWelcomeMessage,
     failLabel,
     maxRetries,
     passLabel,
+    prComment,
     prReviewers,
     syncPRBranch,
+    prWelcomeMessage,
     waitMS,
   };
 }
