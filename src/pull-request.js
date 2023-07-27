@@ -1,17 +1,13 @@
 const core = require("@actions/core");
 const github = require("@actions/github");
 
+import AutoComment from "./auto-comment";
 import GitHub from "./github";
 import PRConflict from "./pr-conflict";
+import PRValidation from "./pr-validation";
 import WelcomeMessage from "./welcome-message";
-import AutoComment from "./auto-comment";
 
-const {
-  getChangelog,
-  getCredits,
-  getDescription,
-  getInputs,
-} = require("./utils");
+const { getInputs } = require("./utils");
 
 const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
 
@@ -44,7 +40,6 @@ export async function run() {
       assignPullRequest,
       failLabel,
       passLabel,
-      commentTemplate,
       prComment,
       prReviewers,
       prWelcomeMessage,
@@ -108,52 +103,8 @@ export async function run() {
     }
 
     // Start validation.
-    const changelog = getChangelog(pullRequest);
-    const props = getCredits(pullRequest);
-    const description = getDescription(pullRequest);
-
-    // Debug information.
-    core.debug(`Changelog: ${JSON.stringify(changelog)}`);
-    core.debug(`Credits: ${JSON.stringify(props)}`);
-    core.debug(`Description: ${description}`);
-
-    if (!changelog.length || !props.length || !description.length) {
-      // Remove Pass Label if already there.
-      await gh.removeLabel(issueNumber, labels, passLabel);
-
-      // Add Fail Label.
-      await gh.addLabel(issueNumber, failLabel);
-
-      // Add Comment to for author to fill out the PR template.
-      const commentBody = commentTemplate.replace(
-        "{author}",
-        `@${author.login}`
-      );
-      await gh.addComment(issueNumber, commentBody);
-
-      if (!changelog.length) {
-        core.setFailed("Please fill out the changelog information");
-      }
-      if (!props.length) {
-        core.setFailed("Please fill out the credits information");
-      }
-      if (!description.length) {
-        core.setFailed(
-          "Please add some description about the changes made in PR"
-        );
-      }
-      return;
-    }
-
-    // All good to go.
-    // 1. Remove fail label
-    // 2. Add Pass label
-    // 3. Request Review.
-    await gh.removeLabel(issueNumber, labels, failLabel);
-    await gh.addLabel(issueNumber, passLabel);
-    if (requestedReviewers.length === 0) {
-      await gh.requestPRReview(issueNumber, prReviewers);
-    }
+    const prValidation = new PRValidation(owner, repo);
+    await prValidation.run(pullRequest);
   } catch (error) {
     if (error instanceof Error) {
       core.setFailed(error.message);

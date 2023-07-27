@@ -7,11 +7,20 @@ const core = require("@actions/core");
  * @returns object
  */
 export function getInputs(pullRequest = {}) {
-  const assignIssues =
-    core.getInput("assign-issues") === "false" ? false : true;
-  const assignPullRequest =
-    core.getInput("assign-pr") === "false" ? false : true;
-  const syncPRBranch = core.getBooleanInput("sync-pr-branch");
+  // PR validation inputs
+  const changelogValidation =
+    core.getInput("changelog-validation") === "false"
+      ? false
+      : core.getInput("changelog-validation") || "/#s*Changelog.*\r?\n([^#]+)/";
+  const creditsValidation =
+    core.getInput("credits-validation") === "false"
+      ? false
+      : core.getInput("credits-validation") || "/#s*Credits.*\r?\n([^#]+)/";
+  const descriptionValidation =
+    core.getInput("description-validation") === "false"
+      ? false
+      : core.getInput("description-validation") ||
+        "/#s*Description of the Change.*\r?\n([^#]+)/";
   const failLabel =
     core.getInput("fail-label") === "false"
       ? false
@@ -25,6 +34,8 @@ export function getInputs(pullRequest = {}) {
       ? false
       : core.getInput("comment-template") ||
         "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?";
+
+  // Welcome message inputs
   const issueWelcomeMessage =
     core.getInput("issue-welcome-message") === "false"
       ? false
@@ -33,6 +44,8 @@ export function getInputs(pullRequest = {}) {
     core.getInput("pr-welcome-message") === "false"
       ? false
       : core.getInput("pr-welcome-message") || false;
+
+  // Issue/PR comment inputs
   const issueComment =
     core.getInput("issue-comment") === "false"
       ? false
@@ -43,6 +56,7 @@ export function getInputs(pullRequest = {}) {
       : core.getInput("pr-comment") || false;
   const ignoreUsers = core.getMultilineInput("comment-ignore-users") || [];
 
+  // PR reviewer inputs
   const authorLogin = pullRequest?.user?.login;
   const reviewers = core.getMultilineInput("reviewers");
   let prReviewers = reviewers[0] === "false" ? false : reviewers;
@@ -61,6 +75,12 @@ export function getInputs(pullRequest = {}) {
     prReviewers = prReviewers.filter((reviewer) => reviewer !== authorLogin);
   }
 
+  // General inputs
+  const assignIssues =
+    core.getInput("assign-issues") === "false" ? false : true;
+  const assignPullRequest =
+    core.getInput("assign-pr") === "false" ? false : true;
+  const syncPRBranch = core.getBooleanInput("sync-pr-branch");
   const addMilestone =
     core.getInput("add-milestone") === "false" ? false : true;
 
@@ -78,6 +98,15 @@ export function getInputs(pullRequest = {}) {
   const maxRetries = core.getInput("max-retries") || 5;
 
   // Add debug log of some information.
+  core.debug(
+    `Changelog Validation: ${changelogValidation} (${typeof changelogValidation})`
+  );
+  core.debug(
+    `Credits Validation: ${creditsValidation} (${typeof creditsValidation})`
+  );
+  core.debug(
+    `Description Validation: ${descriptionValidation} (${typeof descriptionValidation})`
+  );
   core.debug(`Assign Issues: ${assignIssues} (${typeof assignIssues})`);
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
   core.debug(`Fail Label: ${failLabel} (${typeof failLabel})`);
@@ -107,9 +136,12 @@ export function getInputs(pullRequest = {}) {
     assignIssues,
     addMilestone,
     assignPullRequest,
+    changelogValidation,
     commentTemplate,
     conflictLabel,
     conflictComment,
+    creditsValidation,
+    descriptionValidation,
     ignoreUsers,
     issueComment,
     issueWelcomeMessage,
@@ -130,10 +162,10 @@ export function getInputs(pullRequest = {}) {
  * @param {object} payload Pull request payload
  * @returns string
  */
-export function getDescription(payload) {
+export function getDescription(payload, validationRegex) {
   let description = "";
   const cleanBody = payload?.body?.replace(/<!--.*?-->/gs, "");
-  const matches = /#\s*Description of the Change.*\r?\n([^#]+)/.exec(cleanBody);
+  const matches = new RegExp(validationRegex).exec(cleanBody);
   if (matches !== null) {
     description = matches[1]
       .replace(/\r?\n|\r/g, "")
@@ -150,10 +182,10 @@ export function getDescription(payload) {
  * @param {object} payload Pull request payload
  * @returns array
  */
-export function getCredits(payload) {
+export function getCredits(payload, validationRegex) {
   const cleanBody = payload?.body?.replace(/<!--.*?-->/gs, "");
   let credits = [];
-  const matches = /#\s*Credits.*\r?\n([^#]+)/.exec(cleanBody);
+  const matches = new RegExp(validationRegex).exec(cleanBody);
   if (matches !== null) {
     credits = matches[1].match(/@([\w-]+)/g);
     if (credits !== null) {
@@ -176,10 +208,10 @@ export function getCredits(payload) {
  * @param {object} payload Pull request payload
  * @returns array
  */
-export function getChangelog(payload) {
+export function getChangelog(payload, validationRegex) {
   let entries = [];
   const cleanBody = payload?.body?.replace(/<!--.*?-->/gs, "");
-  const matches = /#\s*Changelog.*\r?\n([^#]+)/.exec(cleanBody);
+  const matches = new RegExp(validationRegex).exec(cleanBody);
   if (matches !== null) {
     const changelog = matches[1];
     entries = changelog.split(/\r?\n/);

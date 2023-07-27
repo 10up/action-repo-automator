@@ -35853,11 +35853,20 @@ const core = __nccwpck_require__(2186);
  * @returns object
  */
 function getInputs(pullRequest = {}) {
-  const assignIssues =
-    core.getInput("assign-issues") === "false" ? false : true;
-  const assignPullRequest =
-    core.getInput("assign-pr") === "false" ? false : true;
-  const syncPRBranch = core.getBooleanInput("sync-pr-branch");
+  // PR validation inputs
+  const changelogValidation =
+    core.getInput("changelog-validation") === "false"
+      ? false
+      : core.getInput("changelog-validation") || "/#s*Changelog.*\r?\n([^#]+)/";
+  const creditsValidation =
+    core.getInput("credits-validation") === "false"
+      ? false
+      : core.getInput("credits-validation") || "/#s*Credits.*\r?\n([^#]+)/";
+  const descriptionValidation =
+    core.getInput("description-validation") === "false"
+      ? false
+      : core.getInput("description-validation") ||
+        "/#s*Description of the Change.*\r?\n([^#]+)/";
   const failLabel =
     core.getInput("fail-label") === "false"
       ? false
@@ -35871,6 +35880,8 @@ function getInputs(pullRequest = {}) {
       ? false
       : core.getInput("comment-template") ||
         "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?";
+
+  // Welcome message inputs
   const issueWelcomeMessage =
     core.getInput("issue-welcome-message") === "false"
       ? false
@@ -35879,6 +35890,8 @@ function getInputs(pullRequest = {}) {
     core.getInput("pr-welcome-message") === "false"
       ? false
       : core.getInput("pr-welcome-message") || false;
+
+  // Issue/PR comment inputs
   const issueComment =
     core.getInput("issue-comment") === "false"
       ? false
@@ -35889,6 +35902,7 @@ function getInputs(pullRequest = {}) {
       : core.getInput("pr-comment") || false;
   const ignoreUsers = core.getMultilineInput("comment-ignore-users") || [];
 
+  // PR reviewer inputs
   const authorLogin = pullRequest?.user?.login;
   const reviewers = core.getMultilineInput("reviewers");
   let prReviewers = reviewers[0] === "false" ? false : reviewers;
@@ -35907,6 +35921,12 @@ function getInputs(pullRequest = {}) {
     prReviewers = prReviewers.filter((reviewer) => reviewer !== authorLogin);
   }
 
+  // General inputs
+  const assignIssues =
+    core.getInput("assign-issues") === "false" ? false : true;
+  const assignPullRequest =
+    core.getInput("assign-pr") === "false" ? false : true;
+  const syncPRBranch = core.getBooleanInput("sync-pr-branch");
   const addMilestone =
     core.getInput("add-milestone") === "false" ? false : true;
 
@@ -35924,6 +35944,15 @@ function getInputs(pullRequest = {}) {
   const maxRetries = core.getInput("max-retries") || 5;
 
   // Add debug log of some information.
+  core.debug(
+    `Changelog Validation: ${changelogValidation} (${typeof changelogValidation})`
+  );
+  core.debug(
+    `Credits Validation: ${creditsValidation} (${typeof creditsValidation})`
+  );
+  core.debug(
+    `Description Validation: ${descriptionValidation} (${typeof descriptionValidation})`
+  );
   core.debug(`Assign Issues: ${assignIssues} (${typeof assignIssues})`);
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
   core.debug(`Fail Label: ${failLabel} (${typeof failLabel})`);
@@ -35953,9 +35982,12 @@ function getInputs(pullRequest = {}) {
     assignIssues,
     addMilestone,
     assignPullRequest,
+    changelogValidation,
     commentTemplate,
     conflictLabel,
     conflictComment,
+    creditsValidation,
+    descriptionValidation,
     ignoreUsers,
     issueComment,
     issueWelcomeMessage,
@@ -35976,10 +36008,10 @@ function getInputs(pullRequest = {}) {
  * @param {object} payload Pull request payload
  * @returns string
  */
-function getDescription(payload) {
+function getDescription(payload, validationRegex) {
   let description = "";
   const cleanBody = payload?.body?.replace(/<!--.*?-->/gs, "");
-  const matches = /#\s*Description of the Change.*\r?\n([^#]+)/.exec(cleanBody);
+  const matches = new RegExp(validationRegex).exec(cleanBody);
   if (matches !== null) {
     description = matches[1]
       .replace(/\r?\n|\r/g, "")
@@ -35996,10 +36028,10 @@ function getDescription(payload) {
  * @param {object} payload Pull request payload
  * @returns array
  */
-function getCredits(payload) {
+function getCredits(payload, validationRegex) {
   const cleanBody = payload?.body?.replace(/<!--.*?-->/gs, "");
   let credits = [];
-  const matches = /#\s*Credits.*\r?\n([^#]+)/.exec(cleanBody);
+  const matches = new RegExp(validationRegex).exec(cleanBody);
   if (matches !== null) {
     credits = matches[1].match(/@([\w-]+)/g);
     if (credits !== null) {
@@ -36022,10 +36054,10 @@ function getCredits(payload) {
  * @param {object} payload Pull request payload
  * @returns array
  */
-function getChangelog(payload) {
+function getChangelog(payload, validationRegex) {
   let entries = [];
   const cleanBody = payload?.body?.replace(/<!--.*?-->/gs, "");
-  const matches = /#\s*Changelog.*\r?\n([^#]+)/.exec(cleanBody);
+  const matches = new RegExp(validationRegex).exec(cleanBody);
   if (matches !== null) {
     const changelog = matches[1];
     entries = changelog.split(/\r?\n/);
@@ -37214,6 +37246,192 @@ async function run() {
 var lib_core = __nccwpck_require__(2186);
 // EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js
 var lib_github = __nccwpck_require__(5438);
+;// CONCATENATED MODULE: ./src/auto-comment.js
+
+
+
+
+const { getInputs: auto_comment_getInputs } = __nccwpck_require__(1608);
+
+class AutoComment {
+  constructor(owner, repo) {
+    this.repo = repo;
+    this.owner = owner;
+    this.inputs = auto_comment_getInputs();
+    this.gh = new GitHub({
+      owner: this.owner,
+      repo: this.repo,
+    });
+  }
+
+  async run() {
+    const context = lib_github.context;
+
+    if (context.payload.action !== "opened") {
+      lib_core.info("Not an opened action! Skipping...");
+      return;
+    }
+
+    const isPR =
+      !!context.payload.pull_request && context.eventName === "pull_request";
+    const isIssue = !!context.payload.issue && context.eventName === "issues";
+    const { issueComment, prComment, ignoreUsers } = this.inputs;
+    if (!isPR && !isIssue) {
+      lib_core.info("Not a pull request or Issue! Skipping...");
+      return;
+    }
+
+    if (isIssue && !issueComment) {
+      lib_core.info("Issue comment is not provided! Skipping...");
+      return;
+    }
+
+    if (isPR && !prComment) {
+      lib_core.info("PR comment is not provided! Skipping...");
+      return;
+    }
+
+    const { issue, pull_request } = context.payload;
+    const {
+      number,
+      user: { login: author, type: authorType },
+    } = issue || pull_request;
+    if (!author) {
+      lib_core.info("No author found! Skipping...");
+      return;
+    }
+
+    // Handle Bot User
+    if ("Bot" === authorType) {
+      // Skip validation against bot user.
+      lib_core.info("Issue/PR opened by bot user. Skipping...");
+      return;
+    }
+
+    const allIgnoreUsers = await this.gh.parseUsers(ignoreUsers);
+    if (allIgnoreUsers.includes(author)) {
+      lib_core.info(`Skipping comment for ${author}, as it is in ignore list`);
+      return;
+    }
+
+    // Add comment to newly opened issues/PRs.
+    lib_core.info("Adding comment...");
+    const comment = isIssue ? issueComment : prComment;
+    const commentBody = comment.replace("{author}", `@${author}`);
+
+    // Add comment to issue.
+    await this.gh.addComment(number, commentBody);
+  }
+}
+
+;// CONCATENATED MODULE: ./src/pr-validation.js
+const pr_validation_core = __nccwpck_require__(2186);
+
+
+const {
+  getChangelog,
+  getCredits,
+  getDescription,
+  getInputs: pr_validation_getInputs,
+} = __nccwpck_require__(1608);
+
+class PRValidation {
+  constructor(owner, repo) {
+    this.repo = repo;
+    this.owner = owner;
+    this.gh = new GitHub({
+      owner: this.owner,
+      repo: this.repo,
+    });
+  }
+
+  async run(pullRequest) {
+    const {
+      labels,
+      requested_reviewers: requestedReviewers,
+      user: author,
+      number: issueNumber,
+    } = pullRequest;
+
+    const {
+      passLabel,
+      failLabel,
+      prReviewers,
+      commentTemplate,
+      changelogValidation,
+      creditsValidation,
+      descriptionValidation,
+    } = pr_validation_getInputs();
+
+    if (!changelogValidation && !creditsValidation && !descriptionValidation) {
+      pr_validation_core.info("PR validation is disabled");
+      return;
+    }
+
+    let failed = false;
+    const errors = [];
+    if (changelogValidation) {
+      pr_validation_core.info("Running changelog validation");
+      const changelog = getChangelog(pullRequest, changelogValidation);
+      pr_validation_core.debug(`Changelog: ${JSON.stringify(changelog)}`);
+      if (!changelog.length) {
+        failed = true;
+        errors.push("Please fill out the changelog information");
+      }
+    }
+
+    if (creditsValidation) {
+      pr_validation_core.info("Running credits validation");
+      const props = getCredits(pullRequest, creditsValidation);
+      pr_validation_core.debug(`Credits: ${JSON.stringify(props)}`);
+      if (!props.length) {
+        failed = true;
+        errors.push("Please fill out the credits information");
+      }
+    }
+
+    if (descriptionValidation) {
+      pr_validation_core.info("Running description validation");
+      const description = getDescription(pullRequest, descriptionValidation);
+      pr_validation_core.debug(`Description: ${description}`);
+      if (!description.length) {
+        failed = true;
+        errors.push("Please add some description about the changes made in PR");
+      }
+    }
+
+    if (failed) {
+      // Remove Pass Label if already there.
+      await this.gh.removeLabel(issueNumber, labels, passLabel);
+
+      // Add Fail Label.
+      await this.gh.addLabel(issueNumber, failLabel);
+
+      // Add Comment to for author to fill out the PR template.
+      const commentBody = commentTemplate.replace(
+        "{author}",
+        `@${author.login}`
+      );
+      console.log(`Comment Body: ${commentBody}`);
+      await this.gh.addComment(issueNumber, commentBody);
+
+      // setFailed to stop the workflow.
+      errors.forEach((error) => pr_validation_core.setFailed(error));
+      return;
+    }
+
+    // All good to go.
+    // 1. Remove fail label
+    // 2. Add Pass label
+    // 3. Request Review.
+    await this.gh.removeLabel(issueNumber, labels, failLabel);
+    await this.gh.addLabel(issueNumber, passLabel);
+    if (requestedReviewers.length === 0) {
+      await this.gh.requestPRReview(issueNumber, prReviewers);
+    }
+  }
+}
+
 ;// CONCATENATED MODULE: ./src/welcome-message.js
 
 
@@ -37365,84 +37583,6 @@ class WelcomeMessage {
   }
 }
 
-;// CONCATENATED MODULE: ./src/auto-comment.js
-
-
-
-
-const { getInputs: auto_comment_getInputs } = __nccwpck_require__(1608);
-
-class AutoComment {
-  constructor(owner, repo) {
-    this.repo = repo;
-    this.owner = owner;
-    this.inputs = auto_comment_getInputs();
-    this.gh = new GitHub({
-      owner: this.owner,
-      repo: this.repo,
-    });
-  }
-
-  async run() {
-    const context = lib_github.context;
-
-    if (context.payload.action !== "opened") {
-      lib_core.info("Not an opened action! Skipping...");
-      return;
-    }
-
-    const isPR =
-      !!context.payload.pull_request && context.eventName === "pull_request";
-    const isIssue = !!context.payload.issue && context.eventName === "issues";
-    const { issueComment, prComment, ignoreUsers } = this.inputs;
-    if (!isPR && !isIssue) {
-      lib_core.info("Not a pull request or Issue! Skipping...");
-      return;
-    }
-
-    if (isIssue && !issueComment) {
-      lib_core.info("Issue comment is not provided! Skipping...");
-      return;
-    }
-
-    if (isPR && !prComment) {
-      lib_core.info("PR comment is not provided! Skipping...");
-      return;
-    }
-
-    const { issue, pull_request } = context.payload;
-    const {
-      number,
-      user: { login: author, type: authorType },
-    } = issue || pull_request;
-    if (!author) {
-      lib_core.info("No author found! Skipping...");
-      return;
-    }
-
-    // Handle Bot User
-    if ("Bot" === authorType) {
-      // Skip validation against bot user.
-      lib_core.info("Issue/PR opened by bot user. Skipping...");
-      return;
-    }
-
-    const allIgnoreUsers = await this.gh.parseUsers(ignoreUsers);
-    if (allIgnoreUsers.includes(author)) {
-      lib_core.info(`Skipping comment for ${author}, as it is in ignore list`);
-      return;
-    }
-
-    // Add comment to newly opened issues/PRs.
-    lib_core.info("Adding comment...");
-    const comment = isIssue ? issueComment : prComment;
-    const commentBody = comment.replace("{author}", `@${author}`);
-
-    // Add comment to issue.
-    await this.gh.addComment(number, commentBody);
-  }
-}
-
 ;// CONCATENATED MODULE: ./src/pull-request.js
 const pull_request_core = __nccwpck_require__(2186);
 const pull_request_github = __nccwpck_require__(5438);
@@ -37452,12 +37592,8 @@ const pull_request_github = __nccwpck_require__(5438);
 
 
 
-const {
-  getChangelog,
-  getCredits,
-  getDescription,
-  getInputs: pull_request_getInputs,
-} = __nccwpck_require__(1608);
+
+const { getInputs: pull_request_getInputs } = __nccwpck_require__(1608);
 
 const [pull_request_owner, pull_request_repo] = process.env.GITHUB_REPOSITORY.split("/");
 
@@ -37490,7 +37626,6 @@ async function pull_request_run() {
       assignPullRequest,
       failLabel,
       passLabel,
-      commentTemplate,
       prComment,
       prReviewers,
       prWelcomeMessage,
@@ -37554,52 +37689,8 @@ async function pull_request_run() {
     }
 
     // Start validation.
-    const changelog = getChangelog(pullRequest);
-    const props = getCredits(pullRequest);
-    const description = getDescription(pullRequest);
-
-    // Debug information.
-    pull_request_core.debug(`Changelog: ${JSON.stringify(changelog)}`);
-    pull_request_core.debug(`Credits: ${JSON.stringify(props)}`);
-    pull_request_core.debug(`Description: ${description}`);
-
-    if (!changelog.length || !props.length || !description.length) {
-      // Remove Pass Label if already there.
-      await gh.removeLabel(issueNumber, labels, passLabel);
-
-      // Add Fail Label.
-      await gh.addLabel(issueNumber, failLabel);
-
-      // Add Comment to for author to fill out the PR template.
-      const commentBody = commentTemplate.replace(
-        "{author}",
-        `@${author.login}`
-      );
-      await gh.addComment(issueNumber, commentBody);
-
-      if (!changelog.length) {
-        pull_request_core.setFailed("Please fill out the changelog information");
-      }
-      if (!props.length) {
-        pull_request_core.setFailed("Please fill out the credits information");
-      }
-      if (!description.length) {
-        pull_request_core.setFailed(
-          "Please add some description about the changes made in PR"
-        );
-      }
-      return;
-    }
-
-    // All good to go.
-    // 1. Remove fail label
-    // 2. Add Pass label
-    // 3. Request Review.
-    await gh.removeLabel(issueNumber, labels, failLabel);
-    await gh.addLabel(issueNumber, passLabel);
-    if (requestedReviewers.length === 0) {
-      await gh.requestPRReview(issueNumber, prReviewers);
-    }
+    const prValidation = new PRValidation(pull_request_owner, pull_request_repo);
+    await prValidation.run(pullRequest);
   } catch (error) {
     if (error instanceof Error) {
       pull_request_core.setFailed(error.message);
