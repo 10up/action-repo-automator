@@ -54,6 +54,10 @@ inputs:
   reviewers:
     description: 'List of Reviewers to request PR review after passing all validation checks'
     required: false
+  sync-pr-branch:
+    description: 'Whether to enable automatic synchronization of the pull request branch with the base branch'
+    required: false
+    default: false
   max-retries:
     description: 'Maximum number of retries to check PR mergeable status'
     required: false

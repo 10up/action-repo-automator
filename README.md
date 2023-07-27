@@ -16,6 +16,7 @@ This GitHub Action Helps with the following operations:
 - **Add Milestone:** Automatically adds a Milestone to PRs. If the PR is connected to an issue with a milestone, the same milestone will be added to the PR. Otherwise, the next milestone from the available milestones will be assigned, sorted using version comparison.
 - **Auto-label merge conflicts:** Automatically adds a label to PRs with merge conflicts, and once a conflict is resolved, the label is automatically removed.
 - **Auto-comment merge conflicts:** Automatically adds a comment to PRs with merge conflicts to notify the PR author, and once a conflict is resolved, the comment is automatically removed.
+- **Auto-Sync PR branch:** Automatically keeps the pull request branch up to date with the base branch.
 - **Welcome first-time contributors:** Greet first-time contributors with a warm welcome message on their first issue or PR to the project.
 - **Auto-comment on new Issues/PRs:** Automatically adds a comment to newly opened issues and PRs. This can be used to request users to provide as much context as possible or share links to your contributing guidelines, or anything else that suits your use case.
 
@@ -43,6 +44,7 @@ This GitHub Action Helps with the following operations:
 | pr-comment | false | Comment template for adding a comment to a newly opened pull request |
 | comment-ignore-users | - | List of users to ignore for adding comments when the issue or PR is opened by them.  Add prefix `team:` if you want to ignore users from the team. |
 | reviewers | `team:open-source-practice` | List of Reviewers to request PR review after passing all validation checks. Add prefix `team:` if you want to request review from the team.
+| sync-pr-branch | false | Whether to enable automatic synchronization of the pull request branch with the base branch |
 | wait-ms | `15000` | Time to wait in milliseconds between retries to check PR mergeable status |
 | max-retries | `5` | Maximum number of retries to check PR mergeable status |
 
