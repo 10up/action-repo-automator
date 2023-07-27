@@ -3,6 +3,7 @@ const github = require("@actions/github");
 
 import GitHub from "./github";
 import PRConflict from "./pr-conflict";
+import WelcomeMessage from "./welcome-message";
 
 const {
   getChangelog,
@@ -44,6 +45,7 @@ export async function run() {
       passLabel,
       commentTemplate,
       prReviewers,
+      prWelcomeMessage,
     } = getInputs(pullRequest);
     core.debug(`Pull Request: ${JSON.stringify(pullRequest)}`);
     core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
@@ -74,6 +76,12 @@ export async function run() {
     // Add milestone to PR
     if (!milestone && addMilestone) {
       await gh.addMilestone(issueNumber);
+    }
+
+    // Add welcome message to PR if first time contributor.
+    if ( prWelcomeMessage ) {
+      const welcomeMessage = new WelcomeMessage(owner, repo);
+      await welcomeMessage.run();
     }
 
     // Check for conflicts.

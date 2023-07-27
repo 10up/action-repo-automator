@@ -112,12 +112,8 @@ export default class GitHub {
         repo: this.repo,
         issue_number: prNumber,
       });
-      const isExist = comments.some(({ user, body }) => {
-        // Check comments of Bot user only.
-        if ("Bot" !== user.type) {
-          return false;
-        }
 
+      const isExist = comments.some(({ body }) => {
         return body === message;
       });
 
@@ -599,5 +595,15 @@ export default class GitHub {
       prNumber: Number(prNumber),
     });
     return response?.repository?.pullRequest;
+  }
+
+  /**
+   * Run GraphQL query.
+   * @param {string} query
+   * @param {object} variables
+   * @returns {object} response
+   */
+  async graphql(query, variables) {
+    return this.octokit.graphql(query, variables);
   }
 }
