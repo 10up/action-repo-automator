@@ -11,16 +11,16 @@ export function getInputs(pullRequest = {}) {
   const changelogValidation =
     core.getInput("changelog-validation") === "false"
       ? false
-      : core.getInput("changelog-validation") || "/#s*Changelog.*\r?\n([^#]+)/";
+      : core.getInput("changelog-validation") || "#\\s*Changelog.*\\r?\\n([^#]+)";
   const creditsValidation =
     core.getInput("credits-validation") === "false"
       ? false
-      : core.getInput("credits-validation") || "/#s*Credits.*\r?\n([^#]+)/";
+      : core.getInput("credits-validation") || "#\\s*Credits.*\\r?\\n([^#]+)";
   const descriptionValidation =
     core.getInput("description-validation") === "false"
       ? false
       : core.getInput("description-validation") ||
-        "/#s*Description of the Change.*\r?\n([^#]+)/";
+        "#\\s*Description of the Change.*\\r?\\n([^#]+)";
   const failLabel =
     core.getInput("fail-label") === "false"
       ? false

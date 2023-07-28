@@ -61,15 +61,15 @@ inputs:
   description-validation:
     description: "A regex pattern for validating the pull request description"
     required: false
-    default: /#\s*Description of the Change.*\r?\n([^#]+)/
+    default: "#\\s*Description of the Change.*\\r?\\n([^#]+)"
   changelog-validation:
     description: "A regex pattern for validating the pull request changelog entry"
     required: false
-    default: /#\s*Changelog.*\r?\n([^#]+)/
+    default: "#\\s*Changelog.*\\r?\\n([^#]+)"
   credits-validation:
     description: "A regex pattern for validating the props given in pull request"
     required: false
-    default: /#\s*Credits.*\r?\n([^#]+)/
+    default: "#\\s*Credits.*\\r?\\n([^#]+)"
   max-retries:
     description: "Maximum number of retries to check PR mergeable status"
     required: false
