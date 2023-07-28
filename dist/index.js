@@ -37420,12 +37420,14 @@ class PRValidation {
       await this.gh.addLabel(issueNumber, failLabel);
 
       // Add Comment to for author to fill out the PR template.
-      const commentBody = commentTemplate.replace(
-        "{author}",
-        `@${author.login}`
-      );
-      console.log(`Comment Body: ${commentBody}`);
-      await this.gh.addComment(issueNumber, commentBody);
+      if (commentTemplate) {
+        const commentBody = commentTemplate.replace(
+          "{author}",
+          `@${author.login}`
+        );
+
+        await this.gh.addComment(issueNumber, commentBody);
+      }
 
       // setFailed to stop the workflow.
       errors.forEach((error) => pr_validation_core.setFailed(error));

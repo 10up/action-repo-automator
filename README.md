@@ -33,11 +33,11 @@ This GitHub Action Helps with the following operations:
 | assign-pr | true | Whether to assign PR to author |
 | assign-issues | true | Whether to assign issue with PR assignee when linked PR is merged |
 | add-milestone | true | Whether to automatically add a Milestone to a PR |
-| fail-label | `needs:feedback` | The label to be added to PR if the pull request doesn't pass the validation |
-| pass-label | `needs:code-review` | The label to be added to PR if the pull request pass the validation |
-| conflict-label | `needs:refresh` | The label to be added to PR if the pull request has conflicts |
-| comment-template | `{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?` | Comment template for adding comment on PR if it doesn't pass the validation |
-| conflict-comment | `{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?` | Comment template for adding comment on PR if it has conflicts |
+| fail-label | `needs:feedback` | The label to be added to PR if the pull request doesn't pass the validation. Pass `false` to skip adding the label. |
+| pass-label | `needs:code-review` | The label to be added to PR if the pull request pass the validation. Pass `false` to skip adding the label. |
+| conflict-label | `needs:refresh` | The label to be added to PR if the pull request has conflicts. Pass `false` to skip adding the label. |
+| comment-template | `{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?` | Comment template for adding comment on PR if it doesn't pass the validation. Pass `false` to skip adding the comment. |
+| conflict-comment | `{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?` | Comment template for adding comment on PR if it has conflicts. Pass `false` to skip adding the comment. |
 | issue-welcome-message | false | Comment template for adding a welcome message on an issue for first-time issue creators |
 | pr-welcome-message | false | Comment template for adding a welcome message on a PR for first-time PR creators |
 | issue-comment | false | Comment template for adding a comment to a newly opened issue |
@@ -45,6 +45,9 @@ This GitHub Action Helps with the following operations:
 | comment-ignore-users | - | List of users to ignore for adding comments when the issue or PR is opened by them.  Add prefix `team:` if you want to ignore users from the team. |
 | reviewers | `team:open-source-practice` | List of Reviewers to request PR review after passing all validation checks. Add prefix `team:` if you want to request review from the team.
 | sync-pr-branch | false | Whether to enable automatic synchronization of the pull request branch with the base branch |
+| description-validation | `#\\s*Description of the Change.*\\r?\\n([^#]+)` | A regex pattern for validating the pull request description. Pass `false` to disable description validation |
+| changelog-validation | `#\\s*Changelog.*\\r?\\n([^#]+)` | A regex pattern for validating the pull request changelog entry. Pass `false` to disable changelog validation |
+| credits-validation | `#\\s*Credits.*\\r?\\n([^#]+)` | A regex pattern for validating the props given in pull request. Pass `false` to disable credits validation |
 | wait-ms | `15000` | Time to wait in milliseconds between retries to check PR mergeable status |
 | max-retries | `5` | Maximum number of retries to check PR mergeable status |
 
