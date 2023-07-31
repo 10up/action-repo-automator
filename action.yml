@@ -1,8 +1,8 @@
-name: 'PR Automator'
-description: 'GH Action for automate some common PR operations and validate PR description, changelog and credits.'
+name: "PR Automator"
+description: "GH Action for automate some common PR operations and validate PR description, changelog and credits."
 branding:
-  icon: 'git-branch'
-  color: 'blue'
+  icon: "git-branch"
+  color: "blue"
 inputs:
   assign-pr:
     description: "Whether to assign PR to author"
@@ -15,57 +15,69 @@ inputs:
   fail-label:
     description: "The label to be added to PR if the pull request doesn't pass the validation"
     required: false
-    default: 'needs:feedback'
+    default: "needs:feedback"
   pass-label:
-    description: 'The label to be added to PR if the pull request pass the validation'
+    description: "The label to be added to PR if the pull request pass the validation"
     required: false
-    default: 'needs:code-review'  
+    default: "needs:code-review"
   conflict-label:
-    description: 'The label to be added to PR if the pull request has conflicts'
+    description: "The label to be added to PR if the pull request has conflicts"
     required: false
-    default: 'needs:refresh'
+    default: "needs:refresh"
   conflict-comment:
-    description: 'Comment template for adding comment on PR if it has conflicts'
+    description: "Comment template for adding comment on PR if it has conflicts"
     required: false
-    default: '{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?'
+    default: "{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?"
   comment-template:
     description: "Comment template for adding comment on PR if it doesn't pass the validation"
     required: false
-    default: '{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?'
+    default: "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?"
   issue-welcome-message:
-    description: 'Comment template for adding a welcome message on an issue for first-time issue creators'
+    description: "Comment template for adding a welcome message on an issue for first-time issue creators"
     required: false
     default: false
   issue-comment:
-    description: 'Comment template for adding a comment to a newly opened issue.'
+    description: "Comment template for adding a comment to a newly opened issue."
     required: false
     default: false
   pr-comment:
-    description: 'Comment template for adding a comment to a newly opened pull request.'
+    description: "Comment template for adding a comment to a newly opened pull request."
     required: false
     default: false
   pr-welcome-message:
-    description: 'Comment template for adding a welcome message on a PR for first-time PR creators'
+    description: "Comment template for adding a welcome message on a PR for first-time PR creators"
     required: false
     default: false
   comment-ignore-users:
-    description: 'List of users to ignore for adding comments when the issue or PR is opened by them.'
+    description: "List of users to ignore for adding comments when the issue or PR is opened by them."
     required: false
   reviewers:
-    description: 'List of Reviewers to request PR review after passing all validation checks'
+    description: "List of Reviewers to request PR review after passing all validation checks"
     required: false
   sync-pr-branch:
-    description: 'Whether to enable automatic synchronization of the pull request branch with the base branch'
+    description: "Whether to enable automatic synchronization of the pull request branch with the base branch"
     required: false
     default: false
+  description-validation:
+    description: "A regex pattern for validating the pull request description"
+    required: false
+    default: "#\\s*Description of the Change.*\\r?\\n([^#]+)"
+  changelog-validation:
+    description: "A regex pattern for validating the pull request changelog entry"
+    required: false
+    default: "#\\s*Changelog.*\\r?\\n([^#]+)"
+  credits-validation:
+    description: "A regex pattern for validating the props given in pull request"
+    required: false
+    default: "#\\s*Credits.*\\r?\\n([^#]+)"
   max-retries:
-    description: 'Maximum number of retries to check PR mergeable status'
+    description: "Maximum number of retries to check PR mergeable status"
     required: false
     default: 5
-  wait-ms: 
-    description: 'Time to wait in milliseconds between retries to check PR mergeable status'
+  wait-ms:
+    description: "Time to wait in milliseconds between retries to check PR mergeable status"
     required: false
     default: 15000
 runs:
-  using: 'node16'
-  main: 'dist/index.js'
+  using: "node16"
+  main: "dist/index.js"
