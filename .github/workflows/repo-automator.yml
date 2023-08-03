@@ -1,5 +1,11 @@
-name: 'PR Automator'
+name: 'Repo Automator'
 on:
+  issues:
+    types:
+      - opened
+  push:
+    branches:
+      - develop
   pull_request:
     types:
       - opened
@@ -13,10 +19,13 @@ jobs:
   Validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: 10up/action-pr-automator@develop
+      - uses: 10up/action-repo-automator@develop
         with:
           fail-label: needs:feedback
           pass-label: needs:code-review
-          reviewer: iamdharmesh
+          reviewers: |
+            iamdharmesh
+            team:open-source-practice
+          sync-pr-branch: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
