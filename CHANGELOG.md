@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file, per [the Ke
 ## [Unreleased] - TBD
 
 ## [2.0.0] - 2023-08-XX
+**Note that this release renames action to "Repo Automator"**
 
 ### Added
 - Support for automatically add a milestone. (props [@iamdharmesh](https://github.com/iamdharmesh), [@jeffpaul](https://github.com/jeffpaul), [@faisal-alvi](https://github.com/faisal-alvi) via [#47](https://github.com/10up/action-pr-automator/pull/47))
@@ -18,6 +19,8 @@ All notable changes to this project will be documented in this file, per [the Ke
 
 ### Changed
 - Renamed `reviewer` configuration field to `reviewers`. (props [@iamdharmesh](https://github.com/iamdharmesh), [@faisal-alvi](https://github.com/faisal-alvi), [@jeffpaul](https://github.com/jeffpaul) via [#48](https://github.com/10up/action-pr-automator/pull/48))
+- Rename action to "Repo Automator" (props [@iamdharmesh](https://github.com/iamdharmesh), [@jeffpaul](https://github.com/jeffpaul) via [#87](https://github.com/10up/action-repo-automator/pull/87))
+
 ### Security
 - Bump `@octokit/action` from 4.0.9 to 6.0.5 (props [@dependabot[bot]](https://github.com/apps/dependabot), [@jeffpaul](https://github.com/jeffpaul), [@iamdharmesh](https://github.com/iamdharmesh) via [#30](https://github.com/10up/action-pr-automator/pull/30), [#40](https://github.com/10up/action-pr-automator/pull/40), [#60](https://github.com/10up/action-pr-automator/pull/60), [#62](https://github.com/10up/action-pr-automator/pull/62), [#64](https://github.com/10up/action-pr-automator/pull/64), [#66](https://github.com/10up/action-pr-automator/pull/66), [#69](https://github.com/10up/action-pr-automator/pull/69), [#78](https://github.com/10up/action-pr-automator/pull/78))
 - Bump `@vercel/ncc` from 0.34.0 to 0.36.1 (props [@dependabot[bot]](https://github.com/apps/dependabot), [@jeffpaul](https://github.com/jeffpaul), [@iamdharmesh](https://github.com/iamdharmesh) via [#35](https://github.com/10up/action-pr-automator/pull/35), [#41](https://github.com/10up/action-pr-automator/pull/41))
