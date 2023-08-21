@@ -1,5 +1,5 @@
-name: "PR Automator"
-description: "GH Action for automate some common PR operations and validate PR description, changelog and credits."
+name: "Repo Automator"
+description: "GH Action for automate some common repository operations and validate PR description, changelog and credits."
 branding:
   icon: "git-branch"
   color: "blue"
