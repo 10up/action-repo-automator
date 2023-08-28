@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file, per [the Ke
 
 ## [Unreleased] - TBD
 
-## [2.0.0] - 2023-08-XX
+## [2.0.0] - 2023-08-21
 **Note that this release renames action to "Repo Automator"**
 
 ### Added
