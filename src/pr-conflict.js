@@ -93,9 +93,9 @@ export default class PRConflict {
     if (
       locked ||
       mergeable === "UNKNOWN" ||
-      author.login === "dependabot[bot]"
+      "Bot" === author?.__typename
     ) {
-      // Skip locked PRs, PRs with unknown mergeable state, and dependabot PRs
+      // Skip locked PRs, PRs with unknown mergeable state, and PRs from Bots.
       return;
     }
 

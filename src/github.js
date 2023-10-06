@@ -525,6 +525,7 @@ export default class GitHub {
               locked
               author {
                 login
+                __typename
               }
               baseRefOid
               baseRef {
@@ -577,6 +578,7 @@ export default class GitHub {
           locked
           author {
             login
+            __typename
           }
           baseRefOid
           baseRef {
