@@ -36909,6 +36909,7 @@ class GitHub {
               locked
               author {
                 login
+                __typename
               }
               baseRefOid
               baseRef {
@@ -36961,6 +36962,7 @@ class GitHub {
           locked
           author {
             login
+            __typename
           }
           baseRefOid
           baseRef {
@@ -37151,9 +37153,10 @@ class PRConflict {
     if (
       locked ||
       mergeable === "UNKNOWN" ||
-      author.login === "dependabot[bot]"
+      "Bot" === author?.__typename
     ) {
-      // Skip locked PRs, PRs with unknown mergeable state, and dependabot PRs
+      // Skip locked PRs, PRs with unknown mergeable state, and PRs from Bots.
+      pr_conflict_core.info("Skipping... Either the PR is from a Bot User, has an unknown mergeable state, or is locked.");
       return;
     }
 
