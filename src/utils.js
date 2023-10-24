@@ -176,7 +176,7 @@ function getMatches(string, validationRegex) {
  */
 export function getDescription(payload, validationRegex) {
   let description = "";
-  const cleanBody = payload?.body?.replace(/<!--.*?-->/gs, "");
+  const cleanBody = removeHtmlComments(payload?.body || '');
   const matches = getMatches(cleanBody, validationRegex);
   if (matches !== null) {
     description = matches[1]
@@ -195,7 +195,7 @@ export function getDescription(payload, validationRegex) {
  * @returns array
  */
 export function getCredits(payload, validationRegex) {
-  const cleanBody = payload?.body?.replace(/<!--.*?-->/gs, "");
+  const cleanBody = removeHtmlComments(payload?.body || '');
   let credits = [];
   const matches = getMatches(cleanBody, validationRegex);
   if (matches !== null) {
