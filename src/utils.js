@@ -1,5 +1,4 @@
 const core = require("@actions/core");
-const escapeRegExp = require("lodash.escaperegexp");
 
 /**
  * Get inputs from workflow file.
@@ -165,7 +164,7 @@ export function getInputs(pullRequest = {}) {
  * @returns
  */
 function getMatches(string, validationRegex) {
-  const regex = new RegExp(escapeRegExp(validationRegex));
+  const regex = new RegExp(validationRegex);
   return regex.exec(string);
 }
 
