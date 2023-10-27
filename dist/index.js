@@ -30020,10 +30020,10 @@ function getInputs(pullRequest = {}) {
 
 /**
  * Get Matches from string based on regex
- * 
- * @param {string} string 
- * @param {string} validationRegex 
- * @returns 
+ *
+ * @param {string} string
+ * @param {string} validationRegex
+ * @returns
  */
 function getMatches(string, validationRegex) {
   const regex = new RegExp(validationRegex);
@@ -30038,7 +30038,7 @@ function getMatches(string, validationRegex) {
  */
 function getDescription(payload, validationRegex) {
   let description = "";
-  const cleanBody = payload?.body?.replace(/<!--.*?-->/gs, "");
+  const cleanBody = removeHtmlComments(payload?.body || '');
   const matches = getMatches(cleanBody, validationRegex);
   if (matches !== null) {
     description = matches[1]
@@ -30057,7 +30057,7 @@ function getDescription(payload, validationRegex) {
  * @returns array
  */
 function getCredits(payload, validationRegex) {
-  const cleanBody = payload?.body?.replace(/<!--.*?-->/gs, "");
+  const cleanBody = removeHtmlComments(payload?.body || '');
   let credits = [];
   const matches = getMatches(cleanBody, validationRegex);
   if (matches !== null) {
@@ -30084,7 +30084,7 @@ function getCredits(payload, validationRegex) {
  */
 function getChangelog(payload, validationRegex) {
   let entries = [];
-  const cleanBody = payload?.body?.replace(/<!--.*?-->/gs, "");
+  const cleanBody = removeHtmlComments(payload?.body || '');
   const matches = getMatches(cleanBody, validationRegex);
   if (matches !== null) {
     const changelog = matches[1];
@@ -30112,6 +30112,22 @@ function versionCompare(a, b) {
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Remove all HTML comments from a string.
+ *
+ * @param {string} input Input string.
+ * @returns string
+ */
+function removeHtmlComments(input) {
+  let previous;
+  do {
+    previous = input;
+    input = input?.replace(/<!--.*?-->/gs, "");
+  } while (input !== previous);
+
+  return input;
 }
 
 
