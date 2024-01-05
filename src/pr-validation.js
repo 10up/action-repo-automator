@@ -31,21 +31,21 @@ export default class PRValidation {
       failLabel,
       prReviewers,
       commentTemplate,
-      changelogValidation,
-      creditsValidation,
-      descriptionValidation,
+      validateChangelog,
+      validateCredits,
+      validateDescription,
     } = getInputs();
 
-    if (!changelogValidation && !creditsValidation && !descriptionValidation) {
+    if (!validateChangelog && !validateCredits && !validateDescription) {
       core.info("PR validation is disabled");
       return;
     }
 
     let failed = false;
     const errors = [];
-    if (changelogValidation) {
+    if (validateChangelog) {
       core.info("Running changelog validation");
-      const changelog = getChangelog(pullRequest, changelogValidation);
+      const changelog = getChangelog(pullRequest);
       core.debug(`Changelog: ${JSON.stringify(changelog)}`);
       if (!changelog.length) {
         failed = true;
@@ -53,9 +53,9 @@ export default class PRValidation {
       }
     }
 
-    if (creditsValidation) {
+    if (validateCredits) {
       core.info("Running credits validation");
-      const props = getCredits(pullRequest, creditsValidation);
+      const props = getCredits(pullRequest);
       core.debug(`Credits: ${JSON.stringify(props)}`);
       if (!props.length) {
         failed = true;
@@ -63,9 +63,9 @@ export default class PRValidation {
       }
     }
 
-    if (descriptionValidation) {
+    if (validateDescription) {
       core.info("Running description validation");
-      const description = getDescription(pullRequest, descriptionValidation);
+      const description = getDescription(pullRequest);
       core.debug(`Description: ${description}`);
       if (!description.length) {
         failed = true;
