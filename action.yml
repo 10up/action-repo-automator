@@ -58,18 +58,18 @@ inputs:
     description: "Whether to enable automatic synchronization of the pull request branch with the base branch"
     required: false
     default: false
-  description-validation:
-    description: "A regex pattern for validating the pull request description"
+  validate-description:
+    description: "Whether to validate the pull request description"
     required: false
-    default: "#\\s*Description of the Change.*\\r?\\n([^#]+)"
-  changelog-validation:
-    description: "A regex pattern for validating the pull request changelog entry"
+    default: true
+  validate-changelog:
+    description: "Whether to validate the pull request changelog entry"
     required: false
-    default: "#\\s*Changelog.*\\r?\\n([^#]+)"
-  credits-validation:
-    description: "A regex pattern for validating the props given in pull request"
+    default: true
+  validate-credits:
+    description: "Whether to validate the props given in pull request"
     required: false
-    default: "#\\s*Credits.*\\r?\\n([^#]+)"
+    default: true
   max-retries:
     description: "Maximum number of retries to check PR mergeable status"
     required: false

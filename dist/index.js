@@ -29870,19 +29870,21 @@ const core = __nccwpck_require__(2186);
  */
 function getInputs(pullRequest = {}) {
   // PR validation inputs
-  const changelogValidation =
-    core.getInput("changelog-validation") === "false"
+  const validateChangelog =
+    core.getInput("validate-changelog") === "false" ||
+    core.getInput("changelog-validation") === "false" // Check "changelog-validation" for backward compatibility.
       ? false
-      : core.getInput("changelog-validation") || "#\\s*Changelog.*\\r?\\n([^#]+)";
-  const creditsValidation =
-    core.getInput("credits-validation") === "false"
+      : true;
+  const validateCredits =
+    core.getInput("validate-credits") === "false" ||
+    core.getInput("credits-validation") === "false" // Check "credits-validation" for backward compatibility.
       ? false
-      : core.getInput("credits-validation") || "#\\s*Credits.*\\r?\\n([^#]+)";
-  const descriptionValidation =
-    core.getInput("description-validation") === "false"
+      : true;
+  const validateDescription =
+    core.getInput("validate-description") === "false" ||
+    core.getInput("description-validation") === "false" // Check "description-validation" for backward compatibility.
       ? false
-      : core.getInput("description-validation") ||
-        "#\\s*Description of the Change.*\\r?\\n([^#]+)";
+      : true;
   const failLabel =
     core.getInput("fail-label") === "false"
       ? false
@@ -29961,13 +29963,13 @@ function getInputs(pullRequest = {}) {
 
   // Add debug log of some information.
   core.debug(
-    `Changelog Validation: ${changelogValidation} (${typeof changelogValidation})`
+    `Changelog Validation: ${validateChangelog} (${typeof validateChangelog})`
   );
   core.debug(
-    `Credits Validation: ${creditsValidation} (${typeof creditsValidation})`
+    `Credits Validation: ${validateCredits} (${typeof validateCredits})`
   );
   core.debug(
-    `Description Validation: ${descriptionValidation} (${typeof descriptionValidation})`
+    `Description Validation: ${validateDescription} (${typeof validateDescription})`
   );
   core.debug(`Assign Issues: ${assignIssues} (${typeof assignIssues})`);
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
@@ -29998,12 +30000,12 @@ function getInputs(pullRequest = {}) {
     assignIssues,
     addMilestone,
     assignPullRequest,
-    changelogValidation,
+    validateChangelog,
     commentTemplate,
     conflictLabel,
     conflictComment,
-    creditsValidation,
-    descriptionValidation,
+    validateCredits,
+    validateDescription,
     ignoreUsers,
     issueComment,
     issueWelcomeMessage,
@@ -30019,27 +30021,15 @@ function getInputs(pullRequest = {}) {
 }
 
 /**
- * Get Matches from string based on regex
- *
- * @param {string} string
- * @param {string} validationRegex
- * @returns
- */
-function getMatches(string, validationRegex) {
-  const regex = new RegExp(validationRegex);
-  return regex.exec(string);
-}
-
-/**
  * Get PR description.
  *
  * @param {object} payload Pull request payload
  * @returns string
  */
-function getDescription(payload, validationRegex) {
+function getDescription(payload) {
   let description = "";
-  const cleanBody = removeHtmlComments(payload?.body || '');
-  const matches = getMatches(cleanBody, validationRegex);
+  const cleanBody = removeHtmlComments(payload?.body || "");
+  const matches = /#\s*Description of the Change.*\r?\n([^#]+)/.exec(cleanBody);
   if (matches !== null) {
     description = matches[1]
       .replace(/\r?\n|\r/g, "")
@@ -30056,10 +30046,10 @@ function getDescription(payload, validationRegex) {
  * @param {object} payload Pull request payload
  * @returns array
  */
-function getCredits(payload, validationRegex) {
-  const cleanBody = removeHtmlComments(payload?.body || '');
+function getCredits(payload) {
+  const cleanBody = removeHtmlComments(payload?.body || "");
   let credits = [];
-  const matches = getMatches(cleanBody, validationRegex);
+  const matches = /#\s*Credits.*\r?\n([^#]+)/.exec(cleanBody);
   if (matches !== null) {
     credits = matches[1].match(/@([\w-]+)/g);
     if (credits !== null) {
@@ -30082,10 +30072,10 @@ function getCredits(payload, validationRegex) {
  * @param {object} payload Pull request payload
  * @returns array
  */
-function getChangelog(payload, validationRegex) {
+function getChangelog(payload) {
   let entries = [];
-  const cleanBody = removeHtmlComments(payload?.body || '');
-  const matches = getMatches(cleanBody, validationRegex);
+  const cleanBody = removeHtmlComments(payload?.body || "");
+  const matches = /#\s*Changelog.*\r?\n([^#]+)/.exec(cleanBody);
   if (matches !== null) {
     const changelog = matches[1];
     entries = changelog.split(/\r?\n/);
@@ -31413,21 +31403,21 @@ class PRValidation {
       failLabel,
       prReviewers,
       commentTemplate,
-      changelogValidation,
-      creditsValidation,
-      descriptionValidation,
+      validateChangelog,
+      validateCredits,
+      validateDescription,
     } = pr_validation_getInputs();
 
-    if (!changelogValidation && !creditsValidation && !descriptionValidation) {
+    if (!validateChangelog && !validateCredits && !validateDescription) {
       pr_validation_core.info("PR validation is disabled");
       return;
     }
 
     let failed = false;
     const errors = [];
-    if (changelogValidation) {
+    if (validateChangelog) {
       pr_validation_core.info("Running changelog validation");
-      const changelog = getChangelog(pullRequest, changelogValidation);
+      const changelog = getChangelog(pullRequest);
       pr_validation_core.debug(`Changelog: ${JSON.stringify(changelog)}`);
       if (!changelog.length) {
         failed = true;
@@ -31435,9 +31425,9 @@ class PRValidation {
       }
     }
 
-    if (creditsValidation) {
+    if (validateCredits) {
       pr_validation_core.info("Running credits validation");
-      const props = getCredits(pullRequest, creditsValidation);
+      const props = getCredits(pullRequest);
       pr_validation_core.debug(`Credits: ${JSON.stringify(props)}`);
       if (!props.length) {
         failed = true;
@@ -31445,9 +31435,9 @@ class PRValidation {
       }
     }
 
-    if (descriptionValidation) {
+    if (validateDescription) {
       pr_validation_core.info("Running description validation");
-      const description = getDescription(pullRequest, descriptionValidation);
+      const description = getDescription(pullRequest);
       pr_validation_core.debug(`Description: ${description}`);
       if (!description.length) {
         failed = true;
