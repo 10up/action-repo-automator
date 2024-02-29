@@ -45,9 +45,9 @@ This GitHub Action Helps with the following operations:
 | comment-ignore-users | - | List of users to ignore for adding comments when the issue or PR is opened by them.  Add prefix `team:` if you want to ignore users from the team. |
 | reviewers | `team:open-source-practice` | List of Reviewers to request PR review after passing all validation checks. Add prefix `team:` if you want to request review from the team.
 | sync-pr-branch | false | Whether to enable automatic synchronization of the pull request branch with the base branch |
-| description-validation | `#\\s*Description of the Change.*\\r?\\n([^#]+)` | A regex pattern for validating the pull request description. Pass `false` to disable description validation |
-| changelog-validation | `#\\s*Changelog.*\\r?\\n([^#]+)` | A regex pattern for validating the pull request changelog entry. Pass `false` to disable changelog validation |
-| credits-validation | `#\\s*Credits.*\\r?\\n([^#]+)` | A regex pattern for validating the props given in pull request. Pass `false` to disable credits validation |
+| validate-description | true | Whether to validate the pull request description. Pass `false` to disable description validation |
+| validate-changelog | true | Whether to validate the pull request changelog entry. Pass `false` to disable changelog validation |
+| validate-credits | true | Whether to validate the props given in pull request. Pass `false` to disable credits validation |
 | wait-ms | `15000` | Time to wait in milliseconds between retries to check PR mergeable status |
 | max-retries | `5` | Maximum number of retries to check PR mergeable status |
 

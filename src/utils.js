@@ -8,19 +8,21 @@ const core = require("@actions/core");
  */
 export function getInputs(pullRequest = {}) {
   // PR validation inputs
-  const changelogValidation =
-    core.getInput("changelog-validation") === "false"
+  const validateChangelog =
+    core.getInput("validate-changelog") === "false" ||
+    core.getInput("changelog-validation") === "false" // Check "changelog-validation" for backward compatibility.
       ? false
-      : core.getInput("changelog-validation") || "#\\s*Changelog.*\\r?\\n([^#]+)";
-  const creditsValidation =
-    core.getInput("credits-validation") === "false"
+      : true;
+  const validateCredits =
+    core.getInput("validate-credits") === "false" ||
+    core.getInput("credits-validation") === "false" // Check "credits-validation" for backward compatibility.
       ? false
-      : core.getInput("credits-validation") || "#\\s*Credits.*\\r?\\n([^#]+)";
-  const descriptionValidation =
-    core.getInput("description-validation") === "false"
+      : true;
+  const validateDescription =
+    core.getInput("validate-description") === "false" ||
+    core.getInput("description-validation") === "false" // Check "description-validation" for backward compatibility.
       ? false
-      : core.getInput("description-validation") ||
-        "#\\s*Description of the Change.*\\r?\\n([^#]+)";
+      : true;
   const failLabel =
     core.getInput("fail-label") === "false"
       ? false
@@ -99,13 +101,13 @@ export function getInputs(pullRequest = {}) {
 
   // Add debug log of some information.
   core.debug(
-    `Changelog Validation: ${changelogValidation} (${typeof changelogValidation})`
+    `Changelog Validation: ${validateChangelog} (${typeof validateChangelog})`
   );
   core.debug(
-    `Credits Validation: ${creditsValidation} (${typeof creditsValidation})`
+    `Credits Validation: ${validateCredits} (${typeof validateCredits})`
   );
   core.debug(
-    `Description Validation: ${descriptionValidation} (${typeof descriptionValidation})`
+    `Description Validation: ${validateDescription} (${typeof validateDescription})`
   );
   core.debug(`Assign Issues: ${assignIssues} (${typeof assignIssues})`);
   core.debug(`Assign PR: ${assignPullRequest} (${typeof assignPullRequest})`);
@@ -136,12 +138,12 @@ export function getInputs(pullRequest = {}) {
     assignIssues,
     addMilestone,
     assignPullRequest,
-    changelogValidation,
+    validateChangelog,
     commentTemplate,
     conflictLabel,
     conflictComment,
-    creditsValidation,
-    descriptionValidation,
+    validateCredits,
+    validateDescription,
     ignoreUsers,
     issueComment,
     issueWelcomeMessage,
@@ -157,27 +159,15 @@ export function getInputs(pullRequest = {}) {
 }
 
 /**
- * Get Matches from string based on regex
- *
- * @param {string} string
- * @param {string} validationRegex
- * @returns
- */
-function getMatches(string, validationRegex) {
-  const regex = new RegExp(validationRegex);
-  return regex.exec(string);
-}
-
-/**
  * Get PR description.
  *
  * @param {object} payload Pull request payload
  * @returns string
  */
-export function getDescription(payload, validationRegex) {
+export function getDescription(payload) {
   let description = "";
-  const cleanBody = removeHtmlComments(payload?.body || '');
-  const matches = getMatches(cleanBody, validationRegex);
+  const cleanBody = removeHtmlComments(payload?.body || "");
+  const matches = /#\s*Description of the Change.*\r?\n([^#]+)/.exec(cleanBody);
   if (matches !== null) {
     description = matches[1]
       .replace(/\r?\n|\r/g, "")
@@ -194,10 +184,10 @@ export function getDescription(payload, validationRegex) {
  * @param {object} payload Pull request payload
  * @returns array
  */
-export function getCredits(payload, validationRegex) {
-  const cleanBody = removeHtmlComments(payload?.body || '');
+export function getCredits(payload) {
+  const cleanBody = removeHtmlComments(payload?.body || "");
   let credits = [];
-  const matches = getMatches(cleanBody, validationRegex);
+  const matches = /#\s*Credits.*\r?\n([^#]+)/.exec(cleanBody);
   if (matches !== null) {
     credits = matches[1].match(/@([\w-]+)/g);
     if (credits !== null) {
@@ -220,10 +210,10 @@ export function getCredits(payload, validationRegex) {
  * @param {object} payload Pull request payload
  * @returns array
  */
-export function getChangelog(payload, validationRegex) {
+export function getChangelog(payload) {
   let entries = [];
-  const cleanBody = removeHtmlComments(payload?.body || '');
-  const matches = getMatches(cleanBody, validationRegex);
+  const cleanBody = removeHtmlComments(payload?.body || "");
+  const matches = /#\s*Changelog.*\r?\n([^#]+)/.exec(cleanBody);
   if (matches !== null) {
     const changelog = matches[1];
     entries = changelog.split(/\r?\n/);

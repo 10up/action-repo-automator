@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file, per [the Ke
 
 ## [Unreleased] - TBD
 
+## [2.1.1] - 2024-02-29
+### Changed
+- Disabled dependabot version updates for GitHub Actions and npm dependencies (props [@iamdharmesh](https://github.com/iamdharmesh), [@jeffpaul](https://github.com/jeffpaul) via [#113](https://github.com/10up/action-repo-automator/pull/113))
+- Updated pull request validation input to accept true/false instead of a regex expression (props [@iamdharmesh](https://github.com/iamdharmesh), [@dkotter](https://github.com/dkotter) via [#114](https://github.com/10up/action-repo-automator/pull/114))
+
+### Security
+- Bump `eslint` from 8.53.0 to 8.54.0 (props [@dependabot[bot]](https://github.com/apps/dependabot), [@iamdharmesh](https://github.com/iamdharmesh) via [#112](https://github.com/10up/action-repo-automator/pull/112))
+
 ## [2.1.0] - 2023-11-14
 ### Changed
 - Skip merge conflict check and auto-sync on pull requests from bots (props [@iamdharmesh](https://github.com/iamdharmesh), [@peterwilsoncc](https://github.com/peterwilsoncc) via [#100](https://github.com/10up/action-repo-automator/pull/100))
@@ -57,6 +65,7 @@ All notable changes to this project will be documented in this file, per [the Ke
 - Initial project release 🎉
 
 [Unreleased]: https://github.com/10up/action-repo-automator/compare/trunk...develop
+[2.1.1]: https://github.com/10up/action-repo-automator/compare/2.1.0..2.1.1
 [2.1.0]: https://github.com/10up/action-repo-automator/compare/2.0.0..2.1.0
 [2.0.0]: https://github.com/10up/action-repo-automator/compare/1.0.1..2.0.0
 [1.0.1]: https://github.com/10up/action-repo-automator/compare/1.0.0..1.0.1
