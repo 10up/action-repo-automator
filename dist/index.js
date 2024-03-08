@@ -32173,6 +32173,10 @@ async function pull_request_run() {
     return;
   }
 
+  console.log(pull_request_github.context);
+  console.log(pull_request_github.head_ref);
+
+
   try {
     const gh = new GitHub({
       owner: pull_request_owner,

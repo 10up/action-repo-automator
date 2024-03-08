@@ -18,6 +18,10 @@ export async function run() {
     return;
   }
 
+  console.log(github.context);
+  console.log(github.head_ref);
+
+
   try {
     const gh = new GitHub({
       owner,
