@@ -18,9 +18,8 @@ export async function run() {
     return;
   }
 
-  console.log(github.context);
-  console.log(github.head_ref);
-
+  console.log( JSON.stringify( github.context, null, 2 ) );
+  console.log(github.context.head.ref);
 
   try {
     const gh = new GitHub({

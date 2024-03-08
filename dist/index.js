@@ -32173,9 +32173,8 @@ async function pull_request_run() {
     return;
   }
 
-  console.log(pull_request_github.context);
-  console.log(pull_request_github.head_ref);
-
+  console.log( JSON.stringify( pull_request_github.context, null, 2 ) );
+  console.log(pull_request_github.context.head.ref);
 
   try {
     const gh = new GitHub({
