@@ -32203,7 +32203,7 @@ async function pull_request_run() {
     pull_request_core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
 
     // Ignore release PRs.
-    if ( pullRequest?.head.ref && pullRequest?.head.ref.startsWith("release/") ) {
+    if (pullRequest?.head.ref && pullRequest?.head.ref.startsWith("release/")) {
       pull_request_core.info("Skipping release PR");
       return;
     }
