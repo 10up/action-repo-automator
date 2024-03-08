@@ -48,7 +48,7 @@ export async function run() {
     core.debug(`Is Draft: ${JSON.stringify(isDraft)}`);
 
     // Ignore release PRs.
-    if ( pullRequest?.head.ref && pullRequest?.head.ref.startsWith("release/") ) {
+    if (pullRequest?.head.ref && pullRequest?.head.ref.startsWith("release/")) {
       core.info("Skipping release PR");
       return;
     }
