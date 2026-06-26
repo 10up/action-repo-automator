@@ -6,6 +6,7 @@ const {
   getCredits,
   getDescription,
   getInputs,
+  getSectionContent,
 } = require("./utils.js");
 
 export default class PRValidation {
@@ -34,9 +35,15 @@ export default class PRValidation {
       validateChangelog,
       validateCredits,
       validateDescription,
+      validatePRTemplateSections,
     } = getInputs();
 
-    if (!validateChangelog && !validateCredits && !validateDescription) {
+    if (
+      !validateChangelog &&
+      !validateCredits &&
+      !validateDescription &&
+      !validatePRTemplateSections.length
+    ) {
       core.info("PR validation is disabled");
       return;
     }
@@ -70,6 +77,20 @@ export default class PRValidation {
       if (!description.length) {
         failed = true;
         errors.push("Please add some description about the changes made in PR");
+      }
+    }
+
+    if (validatePRTemplateSections.length) {
+      core.info("Running PR template section validation");
+      for (const heading of validatePRTemplateSections) {
+        const content = getSectionContent(pullRequest, heading);
+        core.debug(`Section "${heading}": ${content}`);
+        if (!content.length) {
+          failed = true;
+          errors.push(
+            `Please fill out the **${heading}** section of the PR template`
+          );
+        }
       }
     }
 
