@@ -35,7 +35,13 @@ export function getInputs(pullRequest = {}) {
     core.getInput("comment-template") === "false"
       ? false
       : core.getInput("comment-template") ||
-        "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?";
+        "{author} thanks for the PR! Could you please fill out the PR template so that we can properly review and merge this?";
+
+  // PR template section validation
+  const rawTemplateSections = core.getMultilineInput("validate-pr-template-sections") || [];
+  const validatePRTemplateSections = rawTemplateSections
+    .map((s) => s.replace(/^#+\s*/, "").trim())
+    .filter(Boolean);
 
   // Welcome message inputs
   const issueWelcomeMessage =
@@ -133,9 +139,13 @@ export function getInputs(pullRequest = {}) {
     `PR Welcome Message: ${prWelcomeMessage} (${typeof prWelcomeMessage})`
   );
   core.debug(`Ignore Users: ${ignoreUsers} (${typeof ignoreUsers})`);
+  core.debug(
+    `Validate PR Template Sections: ${validatePRTemplateSections} (${typeof validatePRTemplateSections})`
+  );
 
   return {
     assignIssues,
+    validatePRTemplateSections,
     addMilestone,
     assignPullRequest,
     validateChangelog,
@@ -220,6 +230,44 @@ export function getChangelog(payload) {
   }
 
   return entries.filter((entry) => entry.length > 0);
+}
+
+/**
+ * Get the content under a specific section heading in the PR body.
+ * Matches any heading level (e.g. #, ##, ###) followed by the given heading text.
+ *
+ * @param {object} payload     Pull request payload
+ * @param {string} headingName Section heading text, without leading # markers
+ * @returns string
+ */
+export function getSectionContent(payload, headingName) {
+  const cleanBody = removeHtmlComments(payload?.body || "");
+  const lines = cleanBody.split(/\r?\n/);
+  let inSection = false;
+  const content = [];
+
+  for (const line of lines) {
+    const isHeading = /^#{1,6}\s+/.test(line);
+    if (isHeading) {
+      // Stop collecting once we hit the next heading after our target.
+      if (inSection) {
+        break;
+      }
+      // Start collecting if this heading matches the target (any level).
+      if (line.replace(/^#{1,6}\s+/, "").trim() === headingName) {
+        inSection = true;
+      }
+      continue;
+    }
+    if (inSection) {
+      content.push(line);
+    }
+  }
+
+  return content
+    .filter((line) => !/^>\s/.test(line))
+    .join("\n")
+    .trim();
 }
 
 /**
