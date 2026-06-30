@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file, per [the Ke
 
 ## [Unreleased] - TBD
 
+## [2.2.0] - 2026-06-30
+### Added
+- New `validate-pr-template-sections` input for configurable PR template section validation (props [@jeffpaul](https://github.com/jeffpaul), [@iamdharmesh](https://github.com/iamdharmesh) via [#136](https://github.com/10up/action-repo-automator/pull/136)).
+
+### Changed
+- Update NPM dependencies via `npm audit fix` (props [@peterwilsoncc](https://github.com/peterwilsoncc), [@dkotter](https://github.com/dkotter) via [#131](https://github.com/10up/action-repo-automator/pull/131)).
+
+### Developer
+- Bump `@octokit/plugin-paginate-rest` from 9.0.0 to 9.2.2 (props [@peterwilsoncc](https://github.com/peterwilsoncc) via [#129](https://github.com/10up/action-repo-automator/pull/129)).
+- Bump `@octokit/plugin-paginate-rest` from 11.3.5 to 11.6.0 (props [@peterwilsoncc](https://github.com/peterwilsoncc) via [#129](https://github.com/10up/action-repo-automator/pull/129)).
+- Bump `@octokit/request` from 8.1.1 to 8.4.1 (props [@peterwilsoncc](https://github.com/peterwilsoncc) via [#129](https://github.com/10up/action-repo-automator/pull/129)).
+- Bump `@octokit/request` from 9.1.3 to 9.2.4 (props [@peterwilsoncc](https://github.com/peterwilsoncc) via [#129](https://github.com/10up/action-repo-automator/pull/129)).
+- Bump `@octokit/request-error` from 5.0.0 to 5.1.1 (props [@peterwilsoncc](https://github.com/peterwilsoncc) via [#129](https://github.com/10up/action-repo-automator/pull/129)).
+- Bump `undici` from 5.28.4 to 5.29.0 (props [@peterwilsoncc](https://github.com/peterwilsoncc) via [#129](https://github.com/10up/action-repo-automator/pull/129)).
+- Bump `undici` from 6.19.8 to 6.21.3 (props [@peterwilsoncc](https://github.com/peterwilsoncc) via [#129](https://github.com/10up/action-repo-automator/pull/129)).
+- Bump `minimatch` from 3.1.2 to 3.1.5 (props [@dkotter](https://github.com/dkotter) via [#134](https://github.com/10up/action-repo-automator/pull/134)).
+- Fix workflow name formatting in `check-dist.yml` (props [@jeffpaul](https://github.com/jeffpaul), [@peterwilsoncc](https://github.com/peterwilsoncc) via [#133](https://github.com/10up/action-repo-automator/pull/133)).
+
 ## [2.1.3] - 2024-11-18
 ### Changed
 - Bump Node.js version from v16 to v20 (props [@iamdharmesh](https://github.com/iamdharmesh), [@dkotter](https://github.com/dkotter) via [#125](https://github.com/10up/action-repo-automator/pull/125)).
@@ -78,6 +96,7 @@ All notable changes to this project will be documented in this file, per [the Ke
 - Initial project release 🎉
 
 [Unreleased]: https://github.com/10up/action-repo-automator/compare/trunk...develop
+[2.2.0]: https://github.com/10up/action-repo-automator/compare/2.1.3..2.2.0
 [2.1.3]: https://github.com/10up/action-repo-automator/compare/2.1.2..2.1.3
 [2.1.2]: https://github.com/10up/action-repo-automator/compare/2.1.1..2.1.2
 [2.1.1]: https://github.com/10up/action-repo-automator/compare/2.1.0..2.1.1
