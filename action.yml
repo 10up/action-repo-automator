@@ -31,7 +31,7 @@ inputs:
   comment-template:
     description: "Comment template for adding comment on PR if it doesn't pass the validation"
     required: false
-    default: "{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?"
+    default: "{author} thanks for the PR! Could you please fill out the PR template so that we can properly review and merge this?"
   issue-welcome-message:
     description: "Comment template for adding a welcome message on an issue for first-time issue creators"
     required: false
@@ -58,6 +58,10 @@ inputs:
     description: "Whether to enable automatic synchronization of the pull request branch with the base branch"
     required: false
     default: false
+  validate-pr-template-sections:
+    description: "Multiline list of PR template section headings (without # markers) that must have non-empty content. Heading level is ignored, so 'What?', '## Why?', and '### Use of AI Tools' all work. Defaults to empty (disabled)."
+    required: false
+    default: ""
   validate-description:
     description: "Whether to validate the pull request description"
     required: false

@@ -1,6 +1,6 @@
 {
   "name": "10up/action-repo-automator",
-  "version": "2.1.3",
+  "version": "2.2.0",
   "description": "GitHub Action to automate some common repository operations and validate PR description, changelog and credits.",
   "keywords": [
     "GitHub",

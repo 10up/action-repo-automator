@@ -36,7 +36,7 @@ This GitHub Action Helps with the following operations:
 | fail-label | `needs:feedback` | The label to be added to PR if the pull request doesn't pass the validation. Pass `false` to skip adding the label. |
 | pass-label | `needs:code-review` | The label to be added to PR if the pull request pass the validation. Pass `false` to skip adding the label. |
 | conflict-label | `needs:refresh` | The label to be added to PR if the pull request has conflicts. Pass `false` to skip adding the label. |
-| comment-template | `{author} thanks for the PR! Could you please fill out the PR template with description, changelog, and credits information so that we can properly review and merge this?` | Comment template for adding comment on PR if it doesn't pass the validation. Pass `false` to skip adding the comment. |
+| comment-template | `{author} thanks for the PR! Could you please fill out the PR template so that we can properly review and merge this?` | Comment template for adding comment on PR if it doesn't pass the validation. Pass `false` to skip adding the comment. |
 | conflict-comment | `{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?` | Comment template for adding comment on PR if it has conflicts. Pass `false` to skip adding the comment. |
 | issue-welcome-message | false | Comment template for adding a welcome message on an issue for first-time issue creators |
 | pr-welcome-message | false | Comment template for adding a welcome message on a PR for first-time PR creators |
@@ -48,8 +48,33 @@ This GitHub Action Helps with the following operations:
 | validate-description | true | Whether to validate the pull request description. Pass `false` to disable description validation |
 | validate-changelog | true | Whether to validate the pull request changelog entry. Pass `false` to disable changelog validation |
 | validate-credits | true | Whether to validate the props given in pull request. Pass `false` to disable credits validation |
+| validate-pr-template-sections | - | Multiline list of PR template section headings (without `#` markers) that must have non-empty content. Heading level is ignored, so `What?`, `## Why?`, and `### Use of AI Tools` all work the same way. See [PR Template Section Validation](#pr-template-section-validation) for details. |
 | wait-ms | `15000` | Time to wait in milliseconds between retries to check PR mergeable status |
 | max-retries | `5` | Maximum number of retries to check PR mergeable status |
+
+## PR Template Section Validation
+
+The `validate-pr-template-sections` input lets you validate that specific sections of your repository's PR template have been filled out. This is an alternative to the built-in `validate-description`, `validate-changelog`, and `validate-credits` checks, and is useful when your PR template uses different headings or sections than those defaults.
+
+Provide a multiline list of section heading names (without the `#` markers). The heading level is ignored — `What?`, `## Why?`, and `### Use of AI Tools` all resolve to the same heading text. Content under a section is considered empty if it contains only whitespace or blockquote lines (lines starting with `>`), which are commonly used as placeholder examples in PR templates.
+
+For example, to require that contributors fill out the `What?`, `Why?`, and `Use of AI Tools` sections of a custom PR template:
+
+```yml
+- uses: 10up/action-repo-automator@trunk
+  with:
+    validate-description: false
+    validate-changelog: false
+    validate-credits: false
+    validate-pr-template-sections: |
+      What?
+      Why?
+      Use of AI Tools
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+Each section that fails validation will produce a separate error and contribute to the `fail-label` being applied to the PR.
 
 ## Example Workflow File
 
@@ -134,4 +159,4 @@ Please read [CODE_OF_CONDUCT.md](https://github.com/10up/action-repo-automator/b
 
 ## Like what you see?
 
-<a href="http://10up.com/contact/"><img src="https://10up.com/uploads/2016/10/10up-Github-Banner.png" width="850" alt="Work with us at 10up"></a>
+<a href="http://10up.com/contact/"><img src="https://github.com/10up/.github/blob/trunk/profile/10up-github-banner.jpg" width="850" alt="Work with the 10up WordPress Practice at Fueled"></a>
