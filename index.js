@@ -16,7 +16,8 @@ async function run() {
         break;
       }
 
-      case "pull_request": {
+      case "pull_request":
+      case "pull_request_target": {
         await runPullRequest();
         break;
       }

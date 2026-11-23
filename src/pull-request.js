@@ -7,13 +7,13 @@ import PRConflict from "./pr-conflict";
 import PRValidation from "./pr-validation";
 import WelcomeMessage from "./welcome-message";
 
-const { getInputs } = require("./utils");
+const { getInputs, isPullRequestEvent } = require("./utils");
 
 const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
 
 export async function run() {
   // Bail if not a pull request.
-  if ("pull_request" !== github.context.eventName) {
+  if (!isPullRequestEvent(github.context.eventName)) {
     core.info("Skipping operations on pull_request event");
     return;
   }

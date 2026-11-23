@@ -107,11 +107,7 @@ export default class GitHub {
         return;
       }
       // Check if comment is already there.
-      const { data: comments } = await this.octokit.issues.listComments({
-        owner: this.owner,
-        repo: this.repo,
-        issue_number: prNumber,
-      });
+      const comments = await this.getComments(prNumber);
 
       const isExist = comments.some(({ body }) => {
         return body === message;
@@ -135,6 +131,88 @@ export default class GitHub {
       core.info(`Comment Added - ${addCommentResponse.status}`);
     } catch (error) {
       core.info(`Failed to create comment on PR: ${error}`);
+    }
+  }
+
+  /**
+   * Get all comments of a PR/Issue.
+   *
+   * @param {number} issueNumber PR or Issue number
+   * @returns {object[]} comments
+   */
+  async getComments(issueNumber) {
+    return this.octokit.paginate(this.octokit.issues.listComments, {
+      owner: this.owner,
+      repo: this.repo,
+      issue_number: issueNumber,
+      per_page: 100,
+    });
+  }
+
+  /**
+   * Keep a single, up to date comment on a PR/Issue.
+   * Creates the comment if there is none, updates it if its text has changed
+   * and leaves it alone if it already says the same thing.
+   *
+   * @param {number} issueNumber PR or Issue number
+   * @param {string} message Comment body
+   * @param {Function} isMatch Receives a comment, returns whether it is the comment to keep up to date
+   * @returns void
+   */
+  async upsertComment(issueNumber, message, isMatch) {
+    try {
+      if (!message) {
+        return;
+      }
+
+      const comments = await this.getComments(issueNumber);
+      const existing = comments.filter(isMatch).pop();
+
+      if (!existing) {
+        core.info("Adding comment...");
+        const addCommentResponse = await this.octokit.issues.createComment({
+          owner: this.owner,
+          repo: this.repo,
+          issue_number: issueNumber,
+          body: message,
+        });
+        core.info(`Comment Added - ${addCommentResponse.status}`);
+        return;
+      }
+
+      if (existing.body === message) {
+        core.info("Comment is already up to date! Skip updating comment");
+        return;
+      }
+
+      core.info("Updating comment...");
+      const updateCommentResponse = await this.octokit.issues.updateComment({
+        owner: this.owner,
+        repo: this.repo,
+        comment_id: existing.id,
+        body: message,
+      });
+      core.info(`Comment Updated - ${updateCommentResponse.status}`);
+    } catch (error) {
+      core.info(`Failed to create or update comment on PR: ${error}`);
+    }
+  }
+
+  /**
+   * Remove the matching comments from a PR/Issue.
+   *
+   * @param {number} issueNumber PR or Issue number
+   * @param {Function} isMatch Receives a comment, returns whether to remove it
+   * @returns void
+   */
+  async removeComments(issueNumber, isMatch) {
+    try {
+      const comments = await this.getComments(issueNumber);
+      for (const comment of comments.filter(isMatch)) {
+        await this.removeComment(comment.id);
+      }
+    } catch (error) {
+      core.info(`Failed to remove comments from PR: ${error}`);
     }
   }
 
@@ -457,6 +535,53 @@ export default class GitHub {
     // Current version of plugin.
     const { version } = JSON.parse(Buffer.from(content, encoding).toString());
     return version;
+  }
+
+  /**
+   * Get the contents of the repository's pull request template.
+   * Looks in the locations GitHub supports for a single template: the `.github`
+   * directory, the repository root and the `docs` directory.
+   *
+   * @param {string} ref Branch, tag or commit to read the template from
+   * @returns {string} template contents, or an empty string if there is no template
+   */
+  async getPullRequestTemplate(ref) {
+    for (const directory of [".github", "", "docs"]) {
+      try {
+        const { data: entries } = await this.octokit.repos.getContent({
+          owner: this.owner,
+          repo: this.repo,
+          path: directory,
+          ref,
+        });
+        const template =
+          Array.isArray(entries) &&
+          entries.find(
+            (entry) =>
+              entry.type === "file" &&
+              entry.name.toLowerCase() === "pull_request_template.md"
+          );
+        if (!template) {
+          continue;
+        }
+
+        const {
+          data: { content, encoding },
+        } = await this.octokit.repos.getContent({
+          owner: this.owner,
+          repo: this.repo,
+          path: template.path,
+          ref,
+        });
+        core.info(`Found PR template at ${template.path}`);
+        return Buffer.from(content, encoding).toString();
+      } catch (error) {
+        core.debug(`No PR template found in "${directory || "/"}": ${error}`);
+      }
+    }
+
+    core.info("No PR template found in the repository");
+    return "";
   }
 
   /**

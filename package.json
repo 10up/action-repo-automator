@@ -25,7 +25,8 @@
   "scripts": {
     "lint": "eslint .",
     "prepare": "ncc build index.js -o dist",
-    "all": "npm run lint && npm run prepare"
+    "all": "npm run lint && npm run prepare",
+    "test": "ncc build tests/index.test.js -o tests/dist -q && node --test tests/dist/index.js"
   },
   "dependencies": {
     "@actions/core": "^1.11.0",
