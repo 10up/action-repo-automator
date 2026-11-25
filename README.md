@@ -156,7 +156,9 @@ permissions:
 
 ### Pull requests from forks
 
-For a pull request opened from a fork, GitHub gives the `pull_request` event a read-only `GITHUB_TOKEN`, so the action cannot add labels or comments. If your project receives PRs from forks, trigger the workflow with `pull_request_target` instead, which runs in the context of the base repository and has write access:
+For a pull request opened from a fork, GitHub gives the `pull_request` event a read-only `GITHUB_TOKEN`, so the action cannot add labels or comments. The validation still runs and its errors are reported in the workflow run.
+
+To have labels and comments on PRs from forks, the workflow can be triggered with `pull_request_target` instead, which runs in the context of the base repository and has write access:
 
 ```yml
 on:
@@ -171,7 +173,10 @@ on:
       - develop
 ```
 
-This action only reads the pull request's metadata through the GitHub API and never checks out or runs code from the pull request, so it is safe to use with `pull_request_target`. Do not add steps to the same job that check out and run the PR's code.
+Before choosing this, note that:
+
+- **GitHub blocks `pull_request_target` by default in public repositories from December 2, 2026.** The workflow only runs if a repository administrator or organization owner allows the event in an Actions event policy (Settings > Actions > Policies), which can be limited to this one workflow file. See [Control workflow execution](https://docs.github.com/actions/how-tos/administer/control-workflow-execution) and [Securely using `pull_request_target`](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target). Private and internal repositories are not affected.
+- This action only reads the pull request's metadata through the GitHub API and never checks out or runs code from the pull request, which is the use `pull_request_target` is intended for. Do not add steps to the same job that check out and run the PR's code.
 
 ### (Optional) GitHub Personal Access Token (PAT)
 
@@ -194,7 +199,7 @@ env:
 
 ## Known Caveats/Issues
 
-__Fork-based PRs__ - When creating a pull request from a fork, GitHub limits the permissions of `GITHUB_TOKEN` and other API access tokens on the `pull_request` event. This means that the provided `GITHUB_TOKEN` will not have write access, and the secrets will not be accessible. As a result, some operations (such as adding labels and comments, auto-assigning pull requests, and requesting reviews automatically) will be skipped for pull requests from forked repositories, as these operations require write access to perform successfully. Use the `pull_request_target` event to avoid this, see [Pull requests from forks](#pull-requests-from-forks).
+__Fork-based PRs__ - When creating a pull request from a fork, GitHub limits the permissions of `GITHUB_TOKEN` and other API access tokens on the `pull_request` event. This means that the provided `GITHUB_TOKEN` will not have write access, and the secrets will not be accessible. As a result, some operations (such as adding labels and comments, auto-assigning pull requests, and requesting reviews automatically) will be skipped for pull requests from forked repositories, as these operations require write access to perform successfully. See [Pull requests from forks](#pull-requests-from-forks) for the `pull_request_target` option and its requirements.
 
 __Merge Conflicts__ - Sometimes, GitHub does not reliably compute the [`mergeable`](https://docs.github.com/en/graphql/reference/enums#mergeablestate) status, which is essential for this action to detect merge conflicts. When the base branch (like "main") is updated, the mergeable status becomes `UNKNOWN` until it is requested by someone, like this action. GitHub then tries to figure out the status with a background process. This process is usually fast and straightforward, but there's no absolute assurance, and occasional problems on GitHub's end may arise. If you need more time for the Pull Request to be processed, you can adjust the settings for `max-retries` and `wait_ms` to extend the timeout before giving up.
 
