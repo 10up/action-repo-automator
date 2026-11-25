@@ -9,6 +9,9 @@ const {
   getSectionContent,
 } = require("./utils.js");
 
+// Hidden marker to recognise the validation comment on later runs.
+export const VALIDATION_COMMENT_MARKER = "<!-- repo-automator:pr-validation -->";
+
 export default class PRValidation {
   constructor(owner, repo) {
     this.repo = repo;
@@ -82,8 +85,12 @@ export default class PRValidation {
 
     if (validatePRTemplateSections.length) {
       core.info("Running PR template section validation");
+      // Content that is unchanged from the PR template does not count as filled out.
+      const template = await this.gh.getPullRequestTemplate(
+        pullRequest.base?.ref
+      );
       for (const heading of validatePRTemplateSections) {
-        const content = getSectionContent(pullRequest, heading);
+        const content = getSectionContent(pullRequest, heading, template);
         core.debug(`Section "${heading}": ${content}`);
         if (!content.length) {
           failed = true;
@@ -94,6 +101,15 @@ export default class PRValidation {
       }
     }
 
+    // The comment asking the author to fill out the PR template, without the list of errors.
+    const commentIntro = commentTemplate
+      ? commentTemplate.replace("{author}", `@${author.login}`)
+      : "";
+    // Also match the comment as it was posted before it carried a marker.
+    const isValidationComment = ({ body }) =>
+      !!body &&
+      (body.includes(VALIDATION_COMMENT_MARKER) || body === commentIntro);
+
     if (failed) {
       // Remove Pass Label if already there.
       await this.gh.removeLabel(issueNumber, labels, passLabel);
@@ -101,14 +117,21 @@ export default class PRValidation {
       // Add Fail Label.
       await this.gh.addLabel(issueNumber, failLabel);
 
-      // Add Comment to for author to fill out the PR template.
+      // Add Comment for author with what is missing, or update it if that has changed.
       if (commentTemplate) {
-        const commentBody = commentTemplate.replace(
-          "{author}",
-          `@${author.login}`
-        );
+        const commentBody = [
+          commentIntro,
+          "",
+          ...errors.map((error) => `- ${error}`),
+          "",
+          VALIDATION_COMMENT_MARKER,
+        ].join("\n");
 
-        await this.gh.addComment(issueNumber, commentBody);
+        await this.gh.upsertComment(
+          issueNumber,
+          commentBody,
+          isValidationComment
+        );
       }
 
       // setFailed to stop the workflow.
@@ -117,10 +140,13 @@ export default class PRValidation {
     }
 
     // All good to go.
-    // 1. Remove fail label
+    // 1. Remove fail label and the comment listing what was missing
     // 2. Add Pass label
     // 3. Request Review.
     await this.gh.removeLabel(issueNumber, labels, failLabel);
+    if (commentTemplate) {
+      await this.gh.removeComments(issueNumber, isValidationComment);
+    }
     await this.gh.addLabel(issueNumber, passLabel);
     if (requestedReviewers.length === 0) {
       await this.gh.requestPRReview(issueNumber, prReviewers);

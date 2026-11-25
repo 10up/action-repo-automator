@@ -36,7 +36,7 @@ This GitHub Action Helps with the following operations:
 | fail-label | `needs:feedback` | The label to be added to PR if the pull request doesn't pass the validation. Pass `false` to skip adding the label. |
 | pass-label | `needs:code-review` | The label to be added to PR if the pull request pass the validation. Pass `false` to skip adding the label. |
 | conflict-label | `needs:refresh` | The label to be added to PR if the pull request has conflicts. Pass `false` to skip adding the label. |
-| comment-template | `{author} thanks for the PR! Could you please fill out the PR template so that we can properly review and merge this?` | Comment template for adding comment on PR if it doesn't pass the validation. Pass `false` to skip adding the comment. |
+| comment-template | `{author} thanks for the PR! Could you please fill out the PR template so that we can properly review and merge this?` | Comment template for adding comment on PR if it doesn't pass the validation. The list of failed checks is added below it, see [Validation comment](#validation-comment). Pass `false` to skip adding the comment. |
 | conflict-comment | `{author} thanks for the PR! Could you please rebase your PR on top of the latest changes in the base branch?` | Comment template for adding comment on PR if it has conflicts. Pass `false` to skip adding the comment. |
 | issue-welcome-message | false | Comment template for adding a welcome message on an issue for first-time issue creators |
 | pr-welcome-message | false | Comment template for adding a welcome message on a PR for first-time PR creators |
@@ -56,7 +56,15 @@ This GitHub Action Helps with the following operations:
 
 The `validate-pr-template-sections` input lets you validate that specific sections of your repository's PR template have been filled out. This is an alternative to the built-in `validate-description`, `validate-changelog`, and `validate-credits` checks, and is useful when your PR template uses different headings or sections than those defaults.
 
-Provide a multiline list of section heading names (without the `#` markers). The heading level is ignored — `What?`, `## Why?`, and `### Use of AI Tools` all resolve to the same heading text. Content under a section is considered empty if it contains only whitespace or blockquote lines (lines starting with `>`), which are commonly used as placeholder examples in PR templates.
+Provide a multiline list of section heading names (without the `#` markers). The heading level is ignored — `What?`, `## Why?`, and `### Use of AI Tools` all resolve to the same heading text.
+
+A section counts as filled out when the PR author has written something in it that is not already in your PR template. To work that out, the action reads the PR template from the base branch of the pull request (`pull_request_template.md` in `.github/`, the repository root or `docs/`, in any letter case) and ignores:
+
+- Lines that are unchanged from the same section of the PR template, such as sample changelog entries, an empty screenshots table or a `Closes` keyword with no issue after it.
+- HTML comments.
+- Blocks that other tools maintain in the PR description between a pair of `<!-- name:start -->` and `<!-- name:end -->` comments, such as the button added by [WordPress Playground PR Preview](https://github.com/WordPress/action-wp-playground-pr-preview).
+
+Reading the PR template requires the `contents: read` permission. If the action cannot find a PR template, it falls back to ignoring blockquote lines (lines starting with `>`), which are commonly used as placeholder examples.
 
 For example, to require that contributors fill out the `What?`, `Why?`, and `Use of AI Tools` sections of a custom PR template:
 
@@ -75,6 +83,17 @@ For example, to require that contributors fill out the `What?`, `Why?`, and `Use
 ```
 
 Each section that fails validation will produce a separate error and contribute to the `fail-label` being applied to the PR.
+
+## Validation comment
+
+When a PR doesn't pass the validation, the action adds a comment made up of your `comment-template` followed by the list of checks that failed, for example:
+
+> @octocat thanks for the PR! Could you please fill out the PR template so that we can properly review and merge this?
+>
+> - Please fill out the **Why?** section of the PR template
+> - Please fill out the **Testing Instructions** section of the PR template
+
+The action keeps a single validation comment per PR. It updates that comment when the list of failed checks changes, and removes it once the PR passes the validation. The same errors are reported in the workflow run.
 
 ## Example Workflow File
 
@@ -124,6 +143,41 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+### Permissions
+
+If your workflow or repository restricts the permissions of `GITHUB_TOKEN`, grant the following so that every feature can work:
+
+```yml
+permissions:
+  contents: read        # Read the PR template and package.json
+  issues: write         # Assign linked issues, comment on issues
+  pull-requests: write  # Label, comment on, assign and request reviews on PRs
+```
+
+### Pull requests from forks
+
+For a pull request opened from a fork, GitHub gives the `pull_request` event a read-only `GITHUB_TOKEN`, so the action cannot add labels or comments. The validation still runs and its errors are reported in the workflow run.
+
+To have labels and comments on PRs from forks, the workflow can be triggered with `pull_request_target` instead, which runs in the context of the base repository and has write access:
+
+```yml
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - converted_to_draft
+      - ready_for_review
+    branches:
+      - develop
+```
+
+Before choosing this, note that:
+
+- **GitHub blocks `pull_request_target` by default in public repositories from December 2, 2026.** The workflow only runs if a repository administrator or organization owner allows the event in an Actions event policy (Settings > Actions > Policies), which can be limited to this one workflow file. See [Control workflow execution](https://docs.github.com/actions/how-tos/administer/control-workflow-execution) and [Securely using `pull_request_target`](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target). Private and internal repositories are not affected.
+- This action only reads the pull request's metadata through the GitHub API and never checks out or runs code from the pull request, which is the use `pull_request_target` is intended for. Do not add steps to the same job that check out and run the PR's code.
+
 ### (Optional) GitHub Personal Access Token (PAT)
 
 When the default `GITHUB_TOKEN` doesn't have the necessary permissions, you need to create a new GitHub personal access token.
@@ -145,7 +199,7 @@ env:
 
 ## Known Caveats/Issues
 
-__Fork-based PRs__ - When creating a pull request from a fork, GitHub limits the permissions of `GITHUB_TOKEN` and other API access tokens. This means that the provided `GITHUB_TOKEN` will not have write access, and the secrets will not be accessible. As a result, some operations (such as adding labels, auto-assigning pull requests, and requesting reviews automatically) will be skipped for pull requests from forked repositories, as these operations require write access to perform successfully.
+__Fork-based PRs__ - When creating a pull request from a fork, GitHub limits the permissions of `GITHUB_TOKEN` and other API access tokens on the `pull_request` event. This means that the provided `GITHUB_TOKEN` will not have write access, and the secrets will not be accessible. As a result, some operations (such as adding labels and comments, auto-assigning pull requests, and requesting reviews automatically) will be skipped for pull requests from forked repositories, as these operations require write access to perform successfully. See [Pull requests from forks](#pull-requests-from-forks) for the `pull_request_target` option and its requirements.
 
 __Merge Conflicts__ - Sometimes, GitHub does not reliably compute the [`mergeable`](https://docs.github.com/en/graphql/reference/enums#mergeablestate) status, which is essential for this action to detect merge conflicts. When the base branch (like "main") is updated, the mergeable status becomes `UNKNOWN` until it is requested by someone, like this action. GitHub then tries to figure out the status with a background process. This process is usually fast and straightforward, but there's no absolute assurance, and occasional problems on GitHub's end may arise. If you need more time for the Pull Request to be processed, you can adjust the settings for `max-retries` and `wait_ms` to extend the timeout before giving up.
 

@@ -2,7 +2,7 @@ import * as core from "@actions/core";
 import * as github from "@actions/github";
 
 import GitHub from "./github";
-const { getInputs } = require("./utils.js");
+const { getInputs, isPullRequestEvent } = require("./utils.js");
 
 export default class WelcomeMessage {
   constructor(owner, repo) {
@@ -24,7 +24,7 @@ export default class WelcomeMessage {
     }
 
     const isPR =
-      !!context.payload.pull_request && context.eventName === "pull_request";
+      !!context.payload.pull_request && isPullRequestEvent(context.eventName);
     const isIssue = !!context.payload.issue && context.eventName === "issues";
     const { issueWelcomeMessage, prWelcomeMessage } = this.inputs;
     if (!isPR && !isIssue) {
